@@ -19,7 +19,7 @@ async function startServer() {
 startServer();
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
+process.on("unhandledRejection", (err) => {
   logger.error(`Unhandled Rejection: ${err.message}`);
   // Close server & exit process
   process.exit(1);

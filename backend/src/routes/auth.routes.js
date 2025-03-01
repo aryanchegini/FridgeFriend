@@ -1,38 +1,23 @@
-const express = require('express');
+const express = require("express");
+const {
+  login,
+  register,
+  logout,
+  getMe,
+} = require("../controllers/auth.controller");
+const authenticate = require("../middleware/auth.middleware");
 const router = express.Router();
-const jwt = require('jsonwebtoken');
-
-
 
 // Login
-router.post("/login", (req, res) => {
-  const { email, password } = req.body;
-  if (username === "test" && password === "password") {
-    return res.status(200).json({message: "Login successful" });
-  } else {
-    return res.status(401).json({message: "Invalid credentials" });
-  }
-});
+router.post("/login", login);
 
 // Register
-router.post('/register', async (req, res) => {
-    const { email, password } = req.body;
-    return res.status(201).json({message: "User registered"})
-})
+router.post("/register", register);
 
-// Logout
-router.post("/logout", (req, res) => {
-  return res.status(200).json({message: "Logout successful"});
-});
+//Logout
+router.post("/logout", authenticate, logout);
 
-
-// Me: Get the user details
-router.get("/details", (req, res) => {
-    return res.status(200).json({mesesage: "Got user details"})
-})
-
-
+// Get user information
+router.get("/me", authenticate, getMe);
 
 module.exports = router;
-
-
