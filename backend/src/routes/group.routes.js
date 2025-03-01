@@ -11,7 +11,7 @@ router.post('/', (req, res) => {
 
 router.put('/:id/join', (req, res) => {
     const {id} = req.params;
-    res.status(201).json({message: `Join groups ${id}`})
+    res.status(201).json({message: `Join groups`})
 })
 
 module.exports = router;
