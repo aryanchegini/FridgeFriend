@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "dateplate-frontend",
-    "slug": "dateplate-frontend",
+    "name": "fridgefriend-frontend",
+    "slug": "fridgefriend-frontend",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
