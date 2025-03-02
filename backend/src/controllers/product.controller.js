@@ -74,7 +74,6 @@ const updateProductStatus = asyncHandler(async (req, res) => {
         product.status = status;
         await product.save();
     }
-    re
 
 });
 
