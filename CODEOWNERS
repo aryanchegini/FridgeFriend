@@ -1,0 +1,31 @@
+# FridgeFriend CODEOWNERS File
+#
+# This file defines who is responsible for reviewing and approving changes to different parts of the codebase.
+# Each line is a file pattern followed by one or more owners.
+# Order is important; the last matching pattern takes precedence.
+# For more info: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+* @aryanchegini
+
+# Backend code ownership
+/backend/ @aryanchegini
+/backend/src/controllers/ @aryanchegini
+/backend/src/models/ @aryanchegini
+/backend/src/routes/ @aryanchegini
+/backend/src/middleware/ @aryanchegini
+
+# Configuration and security-related files
+/backend/src/config/ @aryanchegini
+*.js.map @aryanchegini
+*.env.example @aryanchegini
+
+# Package management
+package.json @aryanchegini
+package-lock.json @aryanchegini
+
+# Documentation
+*.md @aryanchegini
+
+# GitHub-specific files
+/.github/ @aryanchegini
