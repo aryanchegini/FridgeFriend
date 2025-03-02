@@ -17,16 +17,6 @@ async function startServer() {
 }
 
 
-
-
-// Postman testing
-app.get("/", (req, res) => {
-  res.json({ message: "API is running" });
-});
-
-
-
-
 startServer();
 
 // Handle unhandled promise rejections

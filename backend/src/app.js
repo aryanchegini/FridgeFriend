@@ -17,6 +17,15 @@ app.use(helmet());
 app.use(cors());
 
 
+
+
+// Postman testing
+app.get("/", (req, res) => {
+    res.json({ message: "API is running" });
+});
+
+
+
 app.use('/products', require('./routes/products.routes.js'));
 app.use('/groups', require('./routes/groups.routes.js'));
 app.use('/auth', require("./routes/auth.routes.js"));
