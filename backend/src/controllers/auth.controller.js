@@ -22,14 +22,14 @@ exports.register = asyncHandler(async (req, res) => {
     }
 
     // create user
-    createdUser = await User.create({
+    const createdUser = await User.create({
       name,
       email,
       password,
     });
 
     // create user inventory
-    createdInventory = await UserInventory.create({
+    const createdInventory = await UserInventory.create({
       userId: createdUser._id,
       products: [],
       score: 0,
