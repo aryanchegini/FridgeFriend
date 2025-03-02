@@ -75,11 +75,10 @@ const updateProductStatus = asyncHandler(async (req, res) => {
     const productId = req.params.productId;
     const status = req.body.status;
 
-    // Check if product exists
-    const product = await productModel.findById(productId);
+    // Find product & ensure ownership
+    const product = await productModel.findOne({ _id: productId, userId: req.user._id });
     if (!product) {
-        res.status(400);
-        throw new Error('Product not found');
+        return res.status(403).json({ success: false, message: 'You do not own this product' });
     }
 
     // Checking if status is valid
@@ -99,11 +98,12 @@ const deleteProduct = asyncHandler(async (req, res) => {
     const productId = req.params.productId;
 
     // Check if product exists
-    const product = await productModel.findById(productId);
+    // Find product & ensure ownership
+    const product = await productModel.findOne({ _id: productId, userId: req.user._id });
     if (!product) {
-        res.status(400);
-        throw new Error('Product not found');
+        return res.status(403).json({ success: false, message: 'Unauthorized: You do not own this product' });
     }
+    
     else{
         await productModel.findByIdAndDelete(productId);
         res.status(200);
