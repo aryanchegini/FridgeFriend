@@ -14,6 +14,6 @@ router.use(authenticate);
 
 router.route("/").get(getProducts).post(createProduct);
 
-router.route("/:id").patch(updateProductStatus).delete(deleteProduct);
+router.route("/:productId").patch(updateProductStatus).delete(deleteProduct);
 
 module.exports = router;
