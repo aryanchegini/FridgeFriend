@@ -60,13 +60,28 @@ exports.createGroup = async (req, res) => {
 
         const newGroup = new Group({
             groupCode,
-            groupName: group_name
-            createdBy: userID
-            users: [userID]
+            groupName: group_name,
+            createdBy: mongoose.Types.ObjectId(userID), // convert to ObjectId
+            users: [mongoose.Types.ObjectId(userID)] // ensure it's an array of ObjectId
         });
 
+        await newGroup.save();
+
+        res.status(201).json({
+            message: "Group created successfully",
+            group: {
+                groupName: newGroup.groupName,
+                groupCode: newGroup.groupCode,
+                createdBy: newGroup.createdBy,
+                users: newGroup.users
+            }
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Internal Server Error" });
     }
-};
+    }
 
 
 // @desc    Join a group by group code
