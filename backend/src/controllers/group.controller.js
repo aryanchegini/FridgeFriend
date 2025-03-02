@@ -8,7 +8,7 @@ const { v4: uuidv4 } = require("uuid");
 // @access  Private
 exports.getGroups = async (req, res) => {
     try {
-        const userID = req.params.userId;
+        const userID = req.user._id;
         const {groupID} = req.query;
 
         let query = { users : userID}; // only returing groups that members part of
@@ -21,7 +21,7 @@ exports.getGroups = async (req, res) => {
         const groups = await Group.find(query).populate({
             path: "users", 
             select: "userId score -_id", 
-            populate: { path: "userId", select: "-password -timestamps" } 
+            populate: { path: "userId", select: "-password -createdAt -updatedAt" } 
         });
 
         
@@ -52,13 +52,13 @@ exports.getGroups = async (req, res) => {
 exports.createGroup = async (req, res) => {
     try {
         const { group_name } = req.body; // param name from body
-        const userID = req.param.userId
+        const userID = req.user._id
 
         if(!group_name) {
             return res.status(400).json({ error: "Group name is required"})
         }
 
-        const groupCode = uuidv4.slice(0,6).toUppercase(); // generate code
+        const groupCode = uuidv4().slice(0,6).toUpperCase(); // generate code
 
         const newGroup = new Group({
             groupCode,
@@ -92,7 +92,7 @@ exports.createGroup = async (req, res) => {
 exports.joinGroup = async (req, res) => {
     try {
         const { groupId } = req.params; 
-        const userID = req.param.userId; 
+        const userID = req.user._id; 
 
         
         if (!mongoose.Types.ObjectId.isValid(groupId)) {
@@ -105,7 +105,7 @@ exports.joinGroup = async (req, res) => {
             return res.status(404).json({ error: "Group not found" });
         }
 
-        if (group.users.includes(userID)) {
+        if (group.users.some(user => user.toString() === userID.toString())) {
             return res.status(400).json({ error: "User is already in this group" });
         }
 
@@ -124,8 +124,6 @@ exports.joinGroup = async (req, res) => {
         }
 
         res.status(201).json({ message: "User successfully joined the group" });
-        req.query.groupID = groupId; 
-        return getGroups(req, res);
 
     } catch (err) {
         console.error(err);
@@ -143,7 +141,7 @@ exports.joinGroup = async (req, res) => {
 exports.joinGroupByCode = async (req, res) => {
     try {
         const { group_code } = req.body; 
-        const userID = req.param.user; 
+        const userID = req.user._id; 
 
         // validate input
         if (!group_code) {
@@ -177,10 +175,6 @@ exports.joinGroupByCode = async (req, res) => {
 
        
         res.status(201).json({ message: "User successfully joined the group" });
-
-        
-        req.query.groupID = group._id; 
-        return getGroups(req, res);
 
     } catch (err) {
         console.error(err);
