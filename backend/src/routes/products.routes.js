@@ -12,7 +12,7 @@ const router = express.Router();
 // Protect all routes in this router
 router.use(authenticate);
 
-router.route("/").get(getProducts).post(createProduct);
+router.route("/").get(getProducts).post(setProduct);
 
 router.route("/:productId").patch(updateProductStatus).delete(deleteProduct);
 
