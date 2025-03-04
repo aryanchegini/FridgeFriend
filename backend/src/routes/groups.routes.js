@@ -15,6 +15,5 @@ router.use(authenticate);
 router.route("/").get(getGroups).post(createGroup);
 
 router.post("/join", joinGroupByCode);
-router.put("/:groupId/join", joinGroup);
 
 module.exports = router;
