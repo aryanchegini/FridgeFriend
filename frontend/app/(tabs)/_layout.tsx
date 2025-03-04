@@ -41,10 +41,10 @@ export default function TabLayout() {
       }}
       />
       <Tabs.Screen
-      name="barcode"
+      name="scan"
       options={{
         // TODO: Fix barcode icon not showing on web
-        title: 'Barcode',
+        title: 'Scan',
         tabBarIcon: ({ color }) => <IconSymbol size={28} name="barcode" color={color} />,
       }}
       />
