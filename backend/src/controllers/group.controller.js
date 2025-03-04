@@ -144,8 +144,8 @@ exports.joinGroupByCode = async (req, res) => {
   
       // Create a new GroupMembership entry
       await GroupMembership.create({
-        userId: mongoose.Types.ObjectId(userID),
-        groupId: mongoose.Types.ObjectId(group._id),
+        userId: new mongoose.Types.ObjectId(userID),
+        groupId: new mongoose.Types.ObjectId(group._id),
       });
   
       res.status(201).json({ message: "User successfully joined the group" });
