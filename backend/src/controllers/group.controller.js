@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
-const Group = require("../models/Group");
-const UserInventory = require("../models/UserInventory");
+const Group = require("../models/group.model");
+const UserInventory = require("../models/userInventory.model");
 const { v4: uuidv4 } = require("uuid");
 
 // @desc    Get all groups or a specific group with leaderboard
