@@ -11,38 +11,56 @@ exports.getGroups = async (req, res) => {
         const userID = req.user._id;
         const {groupID} = req.query;
 
-        let query = { users : userID}; // only returing groups that members part of
+        let groupQuery = {};
 
         if (groupID) {
-            query._id = groupID // if groupID present filter by group
+            groupQuery._id = groupID // if groupID present filter by group
         }
 
-        // fertching groups from database
-        const groups = await Group.find(query).populate({
-            path: "users", 
-            select: "userId score -_id", 
-            populate: { path: "userId", select: "-password -createdAt -updatedAt" } 
-        });
+        else {
+            const memberships = await GroupMembership.find({ userId: userID }).select("groupId");
+            const groupIds = memberships.map((membership) => membership.groupId);
+            groupQuery._id = { $in: groupIds };
+        }
+
+        const groups = await Group.find(groupQuery);
+
+        const groupData = await Promise.all(
+            groups.map(async (group) => {
+              const memberships = await GroupMembership.find({ groupId: group._id }).populate("userId", "name");
+              const userIds = memberships.map((membership) => membership.userId._id);
+              const scores = await UserInventory.find({ userId: { $in: userIds } }).select("userId score");
+
+              const leaderboard = memberships
+          .map((membership) => {
+            const userScore = scores.find((s) => s.userId.toString() === membership.userId._id.toString()) || { score: 0 };
+            return {
+                userobject: {
+                    userName: membership.userId.name,
+                    userID: membership.userId._id,
+                },
+                score: userScore.score,
+            };
+          })
+          .sort((a, b) => b.score - a.score);
+
+        return {
+          groupName: group.groupName,
+          groupCode: group.groupCode,
+          createdBy: group.createdBy,
+          leaderboard,
+        };
+      })
+    );
+
+    res.json(groupData);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
 
         
-        const leaderboard = groups.map(group => ({
-            groupName: group.groupName,
-            groupCode: group.groupCode,
-            users: group.users
-                .map(user => ({
-                    user: user.userId, 
-                    score: user.score  
-                }))
-                .sort((a, b) => b.score - a.score) // Sort users by highest score
-        }));
-
-        res.json({ leaderboard });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal Server Error" });
-    }
-};
 
    
 
@@ -51,39 +69,50 @@ exports.getGroups = async (req, res) => {
 // @access  Private
 exports.createGroup = async (req, res) => {
     try {
-        const { group_name } = req.body; // param name from body
-        const userID = req.user._id
+      const { group_name } = req.body; 
+      const userID = req.user._id; 
+  
+      if (!group_name) {
+        return res.status(400).json({ error: "Group name is required" });
+      }
 
-        if(!group_name) {
-            return res.status(400).json({ error: "Group name is required"})
-        }
-
-        const groupCode = uuidv4().slice(0,6).toUpperCase(); // generate code
-
-        const newGroup = new Group({
-            groupCode,
-            groupName: group_name,
-            createdBy: mongoose.Types.ObjectId(userID), // convert to ObjectId
-            users: [mongoose.Types.ObjectId(userID)] // ensure it's an array of ObjectId
-        });
-
-        await newGroup.save();
-
-        res.status(201).json({
-            message: "Group created successfully",
-            group: {
-                groupName: newGroup.groupName,
-                groupCode: newGroup.groupCode,
-                createdBy: newGroup.createdBy,
-                users: newGroup.users
-            }
-        });
-
+      let groupCode;
+      let isUnique = false;
+  
+      while (!isUnique) {
+        groupCode = uuidv4().slice(0, 6).toUpperCase();
+        const existingGroup = await Group.findOne({ groupCode });
+        if (!existingGroup) isUnique = true; 
+      }
+  
+      // Create the group
+      const newGroup = new Group({
+        groupCode,
+        groupName: group_name,
+        createdBy: mongoose.Types.ObjectId(userID), 
+      });
+  
+      await newGroup.save();
+  
+      // Create GroupMembership for the creator
+      await GroupMembership.create({
+        userId: mongoose.Types.ObjectId(userID),
+        groupId: newGroup._id,
+      });
+  
+      res.status(201).json({
+        message: "Group created successfully",
+        group: {
+          groupName: newGroup.groupName,
+          groupCode: newGroup.groupCode,
+          createdBy: newGroup.createdBy,
+        },
+      });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal Server Error" });
+      console.error(err);
+      res.status(500).json({ error: "Internal Server Error" });
     }
-};
+  };
 
 
 // @desc    Join a group by group code
@@ -91,45 +120,44 @@ exports.createGroup = async (req, res) => {
 // @access  Private
 exports.joinGroup = async (req, res) => {
     try {
-        const { groupId } = req.params; 
-        const userID = req.user._id; 
+      const { groupId } = req.params; 
+      const userID = req.user._id; 
+  
+      if (!mongoose.Types.ObjectId.isValid(groupId)) {
+        return res.status(400).json({ error: "Invalid group ID" });
+      }
 
-        
-        if (!mongoose.Types.ObjectId.isValid(groupId)) {
-            return res.status(400).json({ error: "Invalid group ID" });
-        }
-
-        // Find the group by ID
-        const group = await Group.findById(groupId);
-        if (!group) {
-            return res.status(404).json({ error: "Group not found" });
-        }
-
-        if (group.users.some(user => user.toString() === userID.toString())) {
-            return res.status(400).json({ error: "User is already in this group" });
-        }
-
-        // add user to the group
-        group.users.push(mongoose.Types.ObjectId(userID));
-        await group.save();
-
-        // create UserInventory entry if it doesn't exist
-        let userInventory = await UserInventory.findOne({ userId: userID });
-        if (!userInventory) {
-            userInventory = new UserInventory({
-                userId: mongoose.Types.ObjectId(userID),
-                score: 0 // Default score
-            });
-            await userInventory.save();
-        }
-
-        res.status(201).json({ message: "User successfully joined the group" });
-
+      const group = await Group.findById(groupId);
+      if (!group) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+  
+      const existingMembership = await GroupMembership.findOne({ userId: userID, groupId });
+      if (existingMembership) {
+        return res.status(400).json({ error: "User is already in this group" });
+      }
+  
+      let userInventory = await UserInventory.findOne({ userId: userID });
+      if (!userInventory) {
+        userInventory = new UserInventory({
+          userId: mongoose.Types.ObjectId(userID),
+          score: 0 
+        });
+        await userInventory.save();
+      }
+  
+      await GroupMembership.create({
+        userId: mongoose.Types.ObjectId(userID),
+        groupId: mongoose.Types.ObjectId(groupId),
+      });
+  
+      res.status(201).json({ message: "User successfully joined the group" });
+  
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Internal Server Error" });
+      console.error(err);
+      res.status(500).json({ error: "Internal Server Error" });
     }
-};
+  };
 
 
 
@@ -140,44 +168,46 @@ exports.joinGroup = async (req, res) => {
 // @access  Private
 exports.joinGroupByCode = async (req, res) => {
     try {
-        const { group_code } = req.body; 
-        const userID = req.user._id; 
-
-        // validate input
-        if (!group_code) {
-            return res.status(400).json({ error: "Group code is required" });
-        }
-
-        // find the group by code
-        const group = await Group.findOne({ groupCode: group_code });
-        if (!group) {
-            return res.status(404).json({ error: "Group not found" });
-        }
-
-        // check if user is already in the group
-        if (group.users.includes(userID)) {
-            return res.status(400).json({ error: "User is already in this group" });
-        }
-
-        // Add user to the group
-        group.users.push(mongoose.Types.ObjectId(userID));
-        await group.save();
-
-        // ensure the user has a UserInventory entry
-        let userInventory = await UserInventory.findOne({ userId: userID });
-        if (!userInventory) {
-            userInventory = new UserInventory({
-                userId: mongoose.Types.ObjectId(userID),
-                score: 0 
-            });
-            await userInventory.save();
-        }
-
-       
-        res.status(201).json({ message: "User successfully joined the group" });
-
+      const { group_code } = req.body; 
+      const userID = req.user._id; 
+  
+      
+      if (!group_code) {
+        return res.status(400).json({ error: "Group code is required" });
+      }
+  
+      // Find the group by group code
+      const group = await Group.findOne({ groupCode: group_code });
+      if (!group) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+  
+      // Checking if user is already a member
+      const existingMembership = await GroupMembership.findOne({ userId: userID, groupId: group._id });
+      if (existingMembership) {
+        return res.status(400).json({ error: "User is already in this group" });
+      }
+  
+     
+      let userInventory = await UserInventory.findOne({ userId: userID });
+      if (!userInventory) {
+        userInventory = new UserInventory({
+          userId: mongoose.Types.ObjectId(userID),
+          score: 0
+        });
+        await userInventory.save();
+      }
+  
+      // Create a new GroupMembership entry
+      await GroupMembership.create({
+        userId: mongoose.Types.ObjectId(userID),
+        groupId: mongoose.Types.ObjectId(group._id),
+      });
+  
+      res.status(201).json({ message: "User successfully joined the group" });
+  
     } catch (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Internal Server Error" });
+      console.error(err);
+      return res.status(500).json({ error: "Internal Server Error" });
     }
-};
+  };

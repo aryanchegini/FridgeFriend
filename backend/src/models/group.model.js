@@ -15,13 +15,7 @@ const groupSchema = new Schema({
     type: String,
     ref: 'User',
     required: true
-  },
-  users: [
-    {
-      type: String,
-      ref: 'UserInventory'  // Linking users by their inventory
-    }
-  ]
+  }
 });
 
 module.exports = mongoose.model('Group', groupSchema);
