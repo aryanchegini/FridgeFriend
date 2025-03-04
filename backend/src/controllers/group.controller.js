@@ -115,53 +115,6 @@ exports.createGroup = async (req, res) => {
   };
 
 
-// @desc    Join a group by group code
-// @route   PUT /api/groups/:groupId/join
-// @access  Private
-exports.joinGroup = async (req, res) => {
-    try {
-      const { groupId } = req.params; 
-      const userID = req.user._id; 
-  
-      if (!mongoose.Types.ObjectId.isValid(groupId)) {
-        return res.status(400).json({ error: "Invalid group ID" });
-      }
-
-      const group = await Group.findById(groupId);
-      if (!group) {
-        return res.status(404).json({ error: "Group not found" });
-      }
-  
-      const existingMembership = await GroupMembership.findOne({ userId: userID, groupId });
-      if (existingMembership) {
-        return res.status(400).json({ error: "User is already in this group" });
-      }
-  
-      let userInventory = await UserInventory.findOne({ userId: userID });
-      if (!userInventory) {
-        userInventory = new UserInventory({
-          userId: mongoose.Types.ObjectId(userID),
-          score: 0 
-        });
-        await userInventory.save();
-      }
-  
-      await GroupMembership.create({
-        userId: mongoose.Types.ObjectId(userID),
-        groupId: mongoose.Types.ObjectId(groupId),
-      });
-  
-      res.status(201).json({ message: "User successfully joined the group" });
-  
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Internal Server Error" });
-    }
-  };
-
-
-
-
 
 // @desc    Join a group by code
 // @route   POST /api/groups/join
@@ -186,16 +139,6 @@ exports.joinGroupByCode = async (req, res) => {
       const existingMembership = await GroupMembership.findOne({ userId: userID, groupId: group._id });
       if (existingMembership) {
         return res.status(400).json({ error: "User is already in this group" });
-      }
-  
-     
-      let userInventory = await UserInventory.findOne({ userId: userID });
-      if (!userInventory) {
-        userInventory = new UserInventory({
-          userId: mongoose.Types.ObjectId(userID),
-          score: 0
-        });
-        await userInventory.save();
       }
   
       // Create a new GroupMembership entry
