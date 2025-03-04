@@ -15,7 +15,7 @@ const getProducts = asyncHandler(async (req, res) => {
 });
 
 // @route POST /products/
-const setProduct = asyncHandler(async (req, res) => {
+const createProduct = asyncHandler(async (req, res) => {
 
     // Product belongs to the inventory linked to the user Id
     // Check if user inventory exists
@@ -112,4 +112,4 @@ const deleteProduct = asyncHandler(async (req, res) => {
 
 });
 
-module.exports = { getProducts, setProduct, updateProductStatus, deleteProduct };
+module.exports = { getProducts, createProduct, updateProductStatus, deleteProduct };
