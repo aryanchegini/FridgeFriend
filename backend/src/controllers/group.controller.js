@@ -90,14 +90,14 @@ exports.createGroup = async (req, res) => {
       const newGroup = new Group({
         groupCode,
         groupName: group_name,
-        createdBy: mongoose.Types.ObjectId(userID), 
+        createdBy: new mongoose.Types.ObjectId(userID), 
       });
   
       await newGroup.save();
   
       // Create GroupMembership for the creator
       await GroupMembership.create({
-        userId: mongoose.Types.ObjectId(userID),
+        userId: new mongoose.Types.ObjectId(userID),
         groupId: newGroup._id,
       });
   
