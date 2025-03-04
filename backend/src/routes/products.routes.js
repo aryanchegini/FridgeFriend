@@ -1,7 +1,7 @@
 const express = require("express");
 const {
   getProducts,
-  createProduct,
+  setProduct,
   updateProductStatus,
   deleteProduct,
 } = require("../controllers/product.controller");
