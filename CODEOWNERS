@@ -5,29 +5,15 @@
 # Order is important; the last matching pattern takes precedence.
 # For more info: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# Default owners for everything in the repo
-# * @aryanchegini
-
-/frontend/ @elijah-ao
-
-# Backend code ownership
+/frontend/ @Elijah-AO
 /backend/ @aryanchegini
-/backend/src/controllers/ @aryanchegini
-/backend/src/models/ @aryanchegini
-/backend/src/routes/ @aryanchegini
-/backend/src/middleware/ @aryanchegini
-
-# Configuration and security-related files
-/backend/src/config/ @aryanchegini
-*.js.map @aryanchegini
-*.env.example @aryanchegini
 
 # Package management
-package.json @aryanchegini
-package-lock.json @aryanchegini
+package.json @aryanchegini @Elijah-AO
+package-lock.json @aryanchegini @Elijah-AO
 
 # Documentation
-*.md @aryanchegini
+*.md @aryanchegini @Elijah-AO
 
 # GitHub-specific files
-/.github/ @aryanchegini
+/.github/ @aryanchegini @Elijah-AO
