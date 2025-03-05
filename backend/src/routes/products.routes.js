@@ -1,7 +1,7 @@
 const express = require("express");
 const {
   getProducts,
-  setProduct,
+  createProduct,
   updateProductStatus,
   deleteProduct,
 } = require("../controllers/product.controller");
@@ -12,7 +12,7 @@ const router = express.Router();
 // Protect all routes in this router
 router.use(authenticate);
 
-router.route("/").get(getProducts).post(setProduct);
+router.route("/").get(getProducts).post(createProduct);
 
 router.route("/:productId").patch(updateProductStatus).delete(deleteProduct);
 

@@ -2,7 +2,6 @@ const express = require("express");
 const {
   getGroups,
   createGroup,
-  joinGroup,
   joinGroupByCode,
 } = require("../controllers/group.controller");
 const authenticate = require("../middleware/auth.middleware");
