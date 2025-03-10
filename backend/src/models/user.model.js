@@ -18,6 +18,10 @@ const userSchema = new Schema({
     required: true,
     trim: true
   },
+  pushToken: {
+    type: String,
+    default: null
+  },
 
 }, {
   timestamps: true // Adds createdAt and updatedAt timestamps
