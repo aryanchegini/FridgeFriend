@@ -1,10 +1,17 @@
 const express = require("express");
 const axios = require("axios");
+const redis = require("redis");
 const router = express.Router();
 const Barcode = require("../models/barcode.model");
 const Product = require("../models/product.model");
 const authenticate = require("../middleware/auth.middleware");
 
+const redisClient = redis.createClient();
+
+redisClient.connect().catch(err => {
+    // Start the app but without Redis. Database and API fetching should work (?but doesnt solve problem?)
+    console.error("Redis connection failed, App still runs but barcode scanner doesn't work");
+});
 
 
 // @desc    GET product info from barcode
@@ -14,10 +21,45 @@ router.get("/:code", authenticate, async (req, res) => {
     try {
         const barcode = req.params.code;
 
-        // Checking if its in the database:
+
+        /**
+         * STEP 1. Checking if product is in Redis cache
+         */
+        let cachedProduct;
+        try {
+            cachedProduct = await Promise.race([
+                redisClient.get(barcode),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Redis timeout")), 2000))
+            ]);
+        } catch (err) {
+            // If redis is not running, skip the cache lookup (?but doesnt solve problem?)
+            console.warn("Redis is down or slow, skipping the cache lookup");
+        }
+
+        if (cachedProduct) {
+            return res.json({
+                success: true,
+                source: "redis-cache",
+                product_name: cachedProduct,
+                message: "Product found in Redis cache"
+            });
+        }
+
+
+        /**
+         * STEP 2. Checking if product is in MongoDB database
+         */
         const barcodeEntry = await Barcode.findOne({ barcode });
 
         if (barcodeEntry) {
+
+            try {
+                await redisClient.setEx(barcode, 86400, barcodeEntry.productName);
+            } catch (err) {
+                console.warn("Failed to cache in Redis, but proceeding")
+            }
+
+            
             return res.json({
                 success: true,
                 source: "database",
@@ -26,7 +68,10 @@ router.get("/:code", authenticate, async (req, res) => {
             });
         }
 
-        // If not found in database, fetch from the external barcode API:
+
+        /**
+         * STEP 3. If not found in steps 1 or 2, fetch from the API
+         */
         /**  
         * Using Open Food Facts API https://openfoodfacts.github.io/openfoodfacts-server/api/
         * Currently using the staging environment; for the production environment replace '.net' with '.org'
@@ -48,7 +93,14 @@ router.get("/:code", authenticate, async (req, res) => {
                 });
             }
 
-            // Storing to reduce API requests to the API
+            // Cache the product in Redis for 24 hours
+            try {
+                await redisClient.setEx(barcode, 86400, productName);
+            } catch (err) {
+                console.warn("Failed to cache in Redis, but proceeding...")
+            }
+            
+            // Store the product in MongoDB database persistently
             await Barcode.create({
                 barcode,
                 productName
