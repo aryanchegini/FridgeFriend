@@ -10,6 +10,8 @@ const errorHandler = require("./middleware/error.middleware.js");
 const app = express();
 connectDB();
 
+const { updateExpiryAndScores, monthlyCleanup } = require('./controllers/product.controller');
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
