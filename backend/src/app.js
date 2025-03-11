@@ -24,6 +24,7 @@ app.get("/", (req, res) => {
 app.use("/products", require("./routes/products.routes.js"));
 app.use("/groups", require("./routes/groups.routes.js"));
 app.use("/auth", require("./routes/auth.routes.js"));
+app.use("/barcodes", require("./routes/barcodes.routes"))
 
 app.use(errorHandler);
 
