@@ -2,90 +2,81 @@ const express = require("express");
 const axios = require("axios");
 const redis = require("redis");
 const router = express.Router();
-const Barcode = require("../models/barcode.model");
-const Product = require("../models/product.model");
 const authenticate = require("../middleware/auth.middleware");
 
+// Creating the Redis client
 const redisClient = redis.createClient();
+let redisAvailable = false;
+let redisLoggedError = false;   // Prevents repeated spamming errors
 
-redisClient.connect().catch(err => {
-    // Start the app but without Redis. Database and API fetching should work (?but doesnt solve problem?)
-    console.error("Redis connection failed, App still runs but barcode scanner doesn't work");
+// Connect to Redis and track its availability
+redisClient.connect().then(() => {
+    redisAvailable = true;
+    redisLoggedError = false;
+    console.log("Redis connected successfully");
+}).catch(err => {
+    redisAvailable = false;
+    console.error("Redis connection failed:", err.message);
 });
 
+// Handle Redis errors after initial connection
+redisClient.on("error", (err) => {
+    if (!redisLoggedError) {
+    console.error("Redis connection error:", err.message);
+    redisLoggedError = true;    // Supress repeated errors
+    }
+    redisAvailable = false;
+});
 
 // @desc    GET product info from barcode
 // @route   GET /barcodes/:code
-// @access   Private (Requires `access_token`)
+// @access  Private (Requires `access_token`)
 router.get("/:code", authenticate, async (req, res) => {
     try {
         const barcode = req.params.code;
 
-
         /**
-         * STEP 1. Checking if product is in Redis cache
+         * STEP 1: Checking if product is in Redis cache (only if Redis is available)
          */
-        let cachedProduct;
-        try {
-            cachedProduct = await Promise.race([
-                redisClient.get(barcode),
-                new Promise((_, reject) => setTimeout(() => reject(new Error("Redis timeout")), 2000))
-            ]);
-        } catch (err) {
-            // If redis is not running, skip the cache lookup (?but doesnt solve problem?)
-            console.warn("Redis is down or slow, skipping the cache lookup");
-        }
-
-        if (cachedProduct) {
-            return res.json({
-                success: true,
-                source: "redis-cache",
-                product_name: cachedProduct,
-                message: "Product found in Redis cache"
-            });
-        }
-
-
-        /**
-         * STEP 2. Checking if product is in MongoDB database
-         */
-        const barcodeEntry = await Barcode.findOne({ barcode });
-
-        if (barcodeEntry) {
-
+        let cachedProduct = null;
+        if (redisAvailable) {
             try {
-                await redisClient.setEx(barcode, 86400, barcodeEntry.productName);
+                cachedProduct = await Promise.race([
+                    redisClient.get(barcode),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("Redis timeout")), 2000))
+                ]);
             } catch (err) {
-                console.warn("Failed to cache in Redis, but proceeding")
+                if (!redisLoggedError) {
+                console.warn("Redis lookup failed:", err.message);
+                redisLoggedError = true;    // Prevents spamming this message
+                }
             }
 
-            
-            return res.json({
-                success: true,
-                source: "database",
-                product_name: barcodeEntry.productName,
-                message: "Product found in database"
-            });
+            if (cachedProduct) {
+                return res.json({
+                    success: true,
+                    source: "redis-cache",
+                    product_name: cachedProduct,
+                    message: "Product found in Redis cache"
+                });
+            }
         }
 
-
         /**
-         * STEP 3. If not found in steps 1 or 2, fetch from the API
+         * STEP 2: If not found in Redis cache, fetch product directly from OpenFoodFacts API:
+         * 
+         * Using OpenFoodFacts API: https://openfoodfacts.github.io/openfoodfacts-server/api/.
+         * Currently using the staging environment; for the production environment replace '.net' with '.org'.
+         * Also specifying 'brands' to use as fallback (since API is crowdsourced)
          */
-        /**  
-        * Using Open Food Facts API https://openfoodfacts.github.io/openfoodfacts-server/api/
-        * Currently using the staging environment; for the production environment replace '.net' with '.org'
-        * Also specifying 'brands' to use as fallback (since API is crowdsourced)
-        */
         const externalApiUrl = `https://world.openfoodfacts.net/api/v2/product/${barcode}?fields=product_name,brands`;
         const response = await axios.get(externalApiUrl);
 
-
         if (response.data && response.data.product) {
-            // Extracting product name with fallback to the 'brands' field
+            // Extracting product name with fallback to brand name
             const productName = response.data.product.product_name || response.data.product.brands;
 
-            // Throwing error if the product name or brand isnt there
+            // Throwing error if the product name or brand isn't there
             if (!productName) {
                 return res.status(404).json({
                     success: false,
@@ -93,40 +84,37 @@ router.get("/:code", authenticate, async (req, res) => {
                 });
             }
 
-            // Cache the product in Redis for 24 hours
-            try {
-                await redisClient.setEx(barcode, 86400, productName);
-            } catch (err) {
-                console.warn("Failed to cache in Redis, but proceeding...")
+            // Caching the product in Redis for 24 hours (only if Redis is available)
+            if (redisAvailable) {
+                try {
+                    await redisClient.setEx(barcode, 86400, productName);
+                } catch (err) {
+                    if (!redisLoggedError) {
+                    console.warn("Failed to cache in Redis:", err.message);
+                    redisLoggedError = true;
+                    }
+                }
             }
-            
-            // Store the product in MongoDB database persistently
-            await Barcode.create({
-                barcode,
-                productName
-            });
 
             return res.json({
                 success: true,
                 source: "external-api",
                 product_name: productName,
-                message: "Product found in external API"
+                message: "Product fetched from external API"
             });
         }
 
         return res.status(404).json({
             success: false,
-            message: "Product not found in database or external API",
+            message: "Product not found in external API",
         });
     } catch (error) {
-        console.error("Error fetching barcode data: ", error.message);
+        console.error("Error fetching barcode data:", error.message);
         res.status(500).json({
             success: false,
             message: "Internal server error"
         });
     }
 });
-
-
 
 module.exports = router;
