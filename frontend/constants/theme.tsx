@@ -8,23 +8,32 @@
 
 export const theme = {
     colors: {
-        primary: '#0B6623',
-        secondary: '#708238',
-        background: '#9DC183',
-        text: '#333333',
-        error: '#FF0000',
+      primary: '#0B6623',     // Forest Green
+      secondary: '#708238',
+      background: '#9DC183',
+      text: '#333333',
+      error: '#FF0000',
     },
     fonts: {
-        body: 'Roboto, sans-serif',
-        heading: 'Roboto, sans-serif',
+      body: 'Roboto',
+      heading: 'Roboto',
     },
     fontSizes: {
-        body: '16px',
-        heading: '24px',
+      body: 16,
+      heading: 24,
+      subheading: 20,
+      caption: 12,
     },
-    space: {
-        small: '8px',
-        medium: '16px',
-        large: '32px',
-    }
-};
+    spacing: {
+      small: 8,
+      medium: 16,
+      large: 24,
+    },
+    borderRadius: {
+      small: 4,
+      medium: 8,
+      large: 16,
+    },
+    
+  };
+  

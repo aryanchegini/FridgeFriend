@@ -1,8 +1,24 @@
 import React from "react";
-import { View, Text, TextInput as RNTextInput, StyleSheet } from "react-native";
+import { View, Text, TextInput as RNTextInput, StyleSheet, KeyboardTypeOptions } from "react-native";
 import { theme } from "../constants/theme";
 
-const TextInput = ({ label, value, onChangeText, secureTextEntry = false }: { label: string; value: string; onChangeText: (text: string) => void; secureTextEntry?: boolean }) => {
+type TextInputProps = {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  secureTextEntry?: boolean;
+  keyboardType?: KeyboardTypeOptions;
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+};
+
+const TextInput = ({
+  label,
+  value,
+  onChangeText,
+  secureTextEntry = false,
+  keyboardType = "default",
+  autoCapitalize = "none",
+}: TextInputProps) => {
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
@@ -11,7 +27,8 @@ const TextInput = ({ label, value, onChangeText, secureTextEntry = false }: { la
         value={value}
         onChangeText={onChangeText}
         secureTextEntry={secureTextEntry}
-        autoCapitalize="none"
+        keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
       />
     </View>
   );
