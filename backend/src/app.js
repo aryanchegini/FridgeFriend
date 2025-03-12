@@ -7,10 +7,14 @@ const connectDB = require("./config/mongoose.config.js");
 
 const errorHandler = require("./middleware/error.middleware.js");
 
+const { updateExpiryAndScores, monthlyCleanup } = require('./controllers/product.controller');
+const { setupScheduledTasks } = require('./controllers/product.controller');
+
 const app = express();
 connectDB();
+setupScheduledTasks();
 
-const { updateExpiryAndScores, monthlyCleanup } = require('./controllers/product.controller');
+
 
 // Middleware
 app.use(express.json());

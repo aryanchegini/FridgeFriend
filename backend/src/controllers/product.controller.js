@@ -84,8 +84,9 @@ const createProduct = asyncHandler(async (req, res) => {
 
 const updateProductStatus = asyncHandler(async (req, res) => {
   const productId = req.params.productId;
+
   const status = req.body.status;
-  const oldStatus = req.body.status;
+  
 
   // Find product & ensure ownership
   const product = await productModel.findOne({
@@ -97,6 +98,8 @@ const updateProductStatus = asyncHandler(async (req, res) => {
       .status(403)
       .json({ success: false, message: "You do not own this product" });
   }
+
+  const oldStatus = product.status; // Get the current status from the product
 
   // Checking if status is valid
   if (!allowedStatus.includes(status)) {
@@ -137,6 +140,34 @@ const deleteProduct = asyncHandler(async (req, res) => {
         message: "Unauthorized: You do not own this product",
       });
   } else {
+
+    // Handle point adjustment for deletion
+    if (product.status !== 'expired') {
+      let pointsToSubtract = 0;
+      
+      if (product.status === 'consumed') {
+        // If consumed, subtract consumption bonus (5) + original days score
+        const daysRemaining = calculateDaysRemaining(product.dateOfExpiry);
+        if (daysRemaining >= 0) {
+          // Calculate what the original score would have been
+          const originalDayPoints = Math.min(Math.max(daysRemaining, 0), 10);
+          pointsToSubtract = originalDayPoints + 5;
+        }
+      } else {
+        // For non-consumed items, use the normal calculation
+        const daysRemaining = calculateDaysRemaining(product.dateOfExpiry);
+        pointsToSubtract = calculateProductScore(daysRemaining, product.status);
+      }
+      
+      if (pointsToSubtract !== 0) {
+        const inventory = await inventoryModel.findOne({ userId: req.user._id });
+        if (inventory) {
+          inventory.score -= pointsToSubtract;
+          await inventory.save();
+        }
+      }
+    }
+
     await productModel.findByIdAndDelete(productId);
     res.status(200);
     res.json({ message: "Product Deleted Successfully!" });
@@ -157,12 +188,12 @@ const calculateDaysRemaining = (expiryDate) => {
 
 const calculateProductScore = (daysRemaining, status) => {
   
-  if (status === 'consumed') {
+  if (status === 'consumed') { // Consumption handled elsewhere (handleConsumptionScore)
     return 0;
   }
   
   if (status === 'expired' || daysRemaining < 0) {
-    return -5;
+    return -10;
   }
   
   if (daysRemaining === 0) {
@@ -178,6 +209,29 @@ const calculateProductScore = (daysRemaining, status) => {
     return 0; 
   }
 };
+
+const handleConsumptionScore = asyncHandler(async (productId) => {
+  const product = await productModel.findById(productId);
+  if (!product) return 0;
+  
+  const daysRemaining = calculateDaysRemaining(product.dateOfExpiry);
+  let consumptionBonus = 0;
+  
+  // Product is consumed before expiry
+  if (daysRemaining >= 0) {
+    let dayScore = calculateProductScore(daysRemaining, 'not_expired');
+    consumptionBonus = 5; // Day score + 3 points bonus
+    
+    // Update user's inventory score with the consumption bonus
+    const inventory = await inventoryModel.findOne({ userId: product.userId });
+    if (inventory) {
+      inventory.score += consumptionBonus;
+      await inventory.save();
+    }
+  }
+  
+  return consumptionBonus;
+});
 
 const updateExpiryAndScores = asyncHandler(async () => {
   try {
@@ -230,29 +284,6 @@ const updateExpiryAndScores = asyncHandler(async () => {
   }
 });
 
-const handleConsumptionScore = asyncHandler(async (productId) => {
-  const product = await productModel.findById(productId);
-  if (!product) return 0;
-  
-  const daysRemaining = calculateDaysRemaining(product.dateOfExpiry);
-  let consumptionBonus = 0;
-  
-  // Product is consumed before expiry
-  if (daysRemaining >= 0) {
-    let dayScore = calculateProductScore(daysRemaining, 'not_expired');
-    consumptionBonus = dayScore + 3; // Day score + 3 points bonus
-    
-    // Update user's inventory score with the consumption bonus
-    const inventory = await inventoryModel.findOne({ userId: product.userId });
-    if (inventory) {
-      inventory.score += consumptionBonus;
-      await inventory.save();
-    }
-  }
-  
-  return consumptionBonus;
-});
-
 const monthlyCleanup = asyncHandler(async () => {
   try {
     console.log("Starting monthly cleanup...");
@@ -271,7 +302,7 @@ const monthlyCleanup = asyncHandler(async () => {
   }
 });
 
-// Setup scheduled tasks
+
 const setupScheduledTasks = () => {
   // Run twice daily at midnight and noon
   cron.schedule('0 0,12 * * *', updateExpiryAndScores);
@@ -283,6 +314,9 @@ const setupScheduledTasks = () => {
 };
 setupScheduledTasks();
 
+
+
+
 module.exports = {
   getProducts,
   createProduct,
@@ -291,5 +325,6 @@ module.exports = {
 
   // Export these for testing or manual triggering
   updateExpiryAndScores,
-  monthlyCleanup
+  monthlyCleanup,
+  setupScheduledTasks
 };
