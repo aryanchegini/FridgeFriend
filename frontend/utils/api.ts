@@ -1,12 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = "http://localhost:3000/api/auth"; 
+const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000/api/auth"; 
 
 
 // Register User
 export const registerUser = async (name: string, email: string, password: string) => {
   try {
-    const response = await fetch(`${API_URL}/register`, {
+    const response = await fetch(`${API_URL}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, email, password }),
@@ -26,7 +26,7 @@ export const registerUser = async (name: string, email: string, password: string
 // Login User
 export const loginUser = async (email: string, password: string) => {
   try {
-    const response = await fetch(`${API_URL}/login`, {
+    const response = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),

@@ -21,7 +21,7 @@ export default function LoginScreen() {
     const response = await loginUser(email, password);
 
     if (response.success) {
-      await signIn(response.user.token);
+      // await signIn(response.user.token); TODO: Address this
       router.replace('/(tabs)' as any);
     } else {
       Alert.alert('Login Failed', response.message);
