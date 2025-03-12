@@ -22,8 +22,8 @@ export default function SignupScreen() {
     const response = await registerUser(name, email, password);
 
     if (response.success) {
-      await signIn(response.user.token);
-      router.replace('/(tabs)' as any);
+      // await signIn(response.user.token); TODO: Address this
+      router.replace('/(auth)/login' as any);
     } else {
       Alert.alert('Signup Failed', response.message);
     }
