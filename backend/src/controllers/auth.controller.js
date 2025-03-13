@@ -10,6 +10,14 @@ const UserInventory = require("../models/userInventory.model");
 exports.register = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
 
+  // check if name, email and password are provided
+  if (!email || !password || !name) {
+    return res.status(400).json({
+      success: false,
+      message: "Please provide a name, email and password.",
+    });
+  }
+
   // check if user exists
   const userExists = await User.findOne({ email });
   if (userExists) {
