@@ -3,27 +3,41 @@ const axios = require("axios");
 const redis = require("redis");
 const router = express.Router();
 const authenticate = require("../middleware/auth.middleware");
+require("dotenv").config(); // Load environment variables
 
-// Creating the Redis client
-const redisClient = redis.createClient();
-let redisAvailable = false;
-let redisLoggedError = false;   // Prevents repeated spamming errors
 
-// Connect to Redis and track its availability
-redisClient.connect().then(() => {
-    redisAvailable = true;
-    redisLoggedError = false;
-    console.log("Redis connected successfully");
-}).catch(err => {
-    redisAvailable = false;
-    console.error("Redis connection failed:", err.message);
+// Creating Redis client with credentials from .env
+const redisClient = redis.createClient({
+    url: process.env.REDIS_URL,
+    password: process.env.REDIS_PASSWORD,
+    socket: {
+        reconnectStrategy: (retries) => Math.min(retries * 50, 1000) // Handles reconnection strategy
+    }
 });
 
-// Handle Redis errors after initial connection
+
+let redisAvailable = false;
+let redisLoggedError = false; // Prevents repeated error spam
+
+
+// Connecting to Redis Cloud and track availability
+redisClient.connect()
+    .then(() => {
+        redisAvailable = true;
+        redisLoggedError = false;
+        console.log("Connected to Redis Cloud successfully!");
+    })
+    .catch(err => {
+        redisAvailable = false;
+        console.error("Redis Cloud connection failed:", err.message);
+    });
+
+
+// Handling Redis runtime errors
 redisClient.on("error", (err) => {
     if (!redisLoggedError) {
-    console.error("Redis connection error:", err.message);
-    redisLoggedError = true;    // Supress repeated errors
+        console.error("Redis Cloud error:", err.message);
+        redisLoggedError = true; // Prevents repeated spam logs
     }
     redisAvailable = false;
 });
@@ -36,7 +50,7 @@ router.get("/:code", authenticate, async (req, res) => {
         const barcode = req.params.code;
 
         /**
-         * STEP 1: Checking if product is in Redis cache (only if Redis is available)
+         * STEP 1: Check if product exists in Redis Cloud cache
          */
         let cachedProduct = null;
         if (redisAvailable) {
@@ -47,8 +61,8 @@ router.get("/:code", authenticate, async (req, res) => {
                 ]);
             } catch (err) {
                 if (!redisLoggedError) {
-                console.warn("Redis lookup failed:", err.message);
-                redisLoggedError = true;    // Prevents spamming this message
+                    console.warn("Redis lookup failed:", err.message);
+                    redisLoggedError = true; // Prevents spam logging
                 }
             }
 
@@ -63,7 +77,7 @@ router.get("/:code", authenticate, async (req, res) => {
         }
 
         /**
-         * STEP 2: If not found in Redis cache, fetch product directly from OpenFoodFacts API:
+         * STEP 2: If not found in Redis Cloud cache, fetch product directly from OpenFoodFacts API:
          * 
          * Using OpenFoodFacts API: https://openfoodfacts.github.io/openfoodfacts-server/api/.
          * Currently using the staging environment; for the production environment replace '.net' with '.org'.
@@ -73,10 +87,9 @@ router.get("/:code", authenticate, async (req, res) => {
         const response = await axios.get(externalApiUrl);
 
         if (response.data && response.data.product) {
-            // Extracting product name with fallback to brand name
             const productName = response.data.product.product_name || response.data.product.brands;
 
-            // Throwing error if the product name or brand isn't there
+            // If no valid product name, return 404
             if (!productName) {
                 return res.status(404).json({
                     success: false,
@@ -84,14 +97,14 @@ router.get("/:code", authenticate, async (req, res) => {
                 });
             }
 
-            // Caching the product in Redis for 24 hours (only if Redis is available)
+            // Cache product in Redis for 24 hours
             if (redisAvailable) {
                 try {
                     await redisClient.setEx(barcode, 86400, productName);
                 } catch (err) {
                     if (!redisLoggedError) {
-                    console.warn("Failed to cache in Redis:", err.message);
-                    redisLoggedError = true;
+                        console.warn("Failed to cache in Redis:", err.message);
+                        redisLoggedError = true;
                     }
                 }
             }
