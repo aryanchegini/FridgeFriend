@@ -67,3 +67,54 @@ export const fetchUserData = async () => {
 export const logoutUser = async () => {
   await AsyncStorage.removeItem("userToken");
 };
+
+
+// Get product from barcode
+export const scanBarcode = async (barcode: string) => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+    if (!token) return { success: false, message: "Unauthorized" };
+
+    const response = await fetch(`${API_URL}/barcodes/${barcode}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Scan Failed" );
+
+    return { success: true, product: data };
+  } catch (error: any) {
+    return { success: false, message: error.message || "Error Scanning Barcode" };
+  }
+};
+
+
+// Add product
+export const addProduct = async (
+  productName: string,
+  quantity: number,
+  dateOfExpiry: string,
+  status?: string
+) => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+    if (!token) return { success: false, message: "Unauthorized" };
+
+    const response = await fetch(`${API_URL}/products`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ productName, quantity, dateOfExpiry, status }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Failed to add product");
+
+    return { success: true, product: data };
+  } catch (error: any) {
+    return { success: false, message: error.message || "Error adding product" };
+  }
+};
