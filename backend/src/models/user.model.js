@@ -18,11 +18,30 @@ const userSchema = new Schema({
     required: true,
     trim: true
   },
-  pushToken: {
-    type: String,
-    default: null
-  },
-
+  pushTokens: [{
+    token: {
+      type: String,
+      required: true
+    },
+    deviceId: {
+      type: String,
+      required: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  notificationSettings: {
+    expiryAlerts: {
+      type: Boolean,
+      default: true
+    },
+    leaderboardAlerts: {
+      type: Boolean,
+      default: true
+    }
+  }
 }, {
   timestamps: true // Adds createdAt and updatedAt timestamps
 });

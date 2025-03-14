@@ -6,9 +6,12 @@ const morgan = require("morgan");
 const connectDB = require("./config/mongoose.config.js");
 
 const errorHandler = require("./middleware/error.middleware.js");
+const { setupNotificationScheduler } = require('./controllers/notification.controller');
+
 
 const app = express();
 connectDB();
+setupNotificationScheduler();
 
 // Middleware
 app.use(express.json());
