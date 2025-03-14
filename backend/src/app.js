@@ -8,17 +8,12 @@ const connectDB = require("./config/mongoose.config.js");
 const logger = require("./utils/logger.js")
 const errorHandler = require("./middleware/error.middleware.js");
 const { setupNotificationScheduler } = require('./controllers/notification.controller');
-
-
-const { updateExpiryAndScores, monthlyCleanup } = require('./controllers/product.controller');
 const { setupScheduledTasks } = require('./controllers/product.controller');
 
 const app = express();
 connectDB();
 setupNotificationScheduler();
 setupScheduledTasks();
-
-
 
 // Middleware
 app.use(express.json());
