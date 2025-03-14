@@ -6,12 +6,13 @@ const cors = require("cors");
 require("./jobs/scheduleNotifications");
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 async function startServer() {
   try {
     // Start the server
-    app.listen(PORT, () => {
-      logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+    app.listen(PORT, HOST, () => {
+      logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT} with host ${HOST}`);
     });
   } catch (error) {
     logger.error(`Error starting server: ${error.message}`);

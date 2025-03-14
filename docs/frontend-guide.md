@@ -28,7 +28,28 @@ Before running the frontend, ensure you have the following installed:
    npm install
    ```
 
-4. Start the Expo development server:
+4. Create a `.env` file in the `frontend` directory and your IP address to the file by running the following commands:
+    ```sh
+    touch .env
+    echo "REACT_NATIVE_API_URL=http://<YOUR_IP_ADDRESS>:3000" > .env
+    ```
+  
+    Replace `<YOUR_IP_ADDRESS>` with your local IP address.
+    <br>
+    You can find your IP address by running the following command:
+    on macOS, or Linux:
+    ```sh
+    ipconfig getifaddr en0
+    ```
+    or on Windows:
+    ```sh
+    ipconfig
+    ```
+    It should be in the form of `192.168.x.x`.
+    <br>
+    Keep in mind that the backend server must be running on the same IP address, and that your mobile device must be connected to the same network. Also, your IP address may change if you are not connected to the same network.
+
+5. Start the Expo development server:
    ```sh
    npm start
    ```
