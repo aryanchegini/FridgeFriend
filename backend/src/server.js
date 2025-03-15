@@ -3,8 +3,6 @@ const app = require('./app');
 const logger = require('./utils/logger');
 const cors = require("cors");
 
-require("./jobs/scheduleNotifications");
-
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
