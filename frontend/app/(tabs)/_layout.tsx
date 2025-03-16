@@ -8,6 +8,8 @@ import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 
@@ -34,10 +36,10 @@ export default function TabLayout() {
       }}
       />
       <Tabs.Screen
-      name="explore"
+      name="groups"
       options={{
-        title: 'Explore',
-        tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+        title: 'groups',
+        tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.2.fill" color={color} />,
       }}
       />
       <Tabs.Screen
@@ -45,7 +47,7 @@ export default function TabLayout() {
       options={{
         // TODO: Fix barcode icon not showing on web
         title: 'Scan',
-        tabBarIcon: ({ color }) => <IconSymbol size={28} name="barcode" color={color} />,
+        tabBarIcon: ({ color }) => <IconSymbol size={28} name="barcode.viewfinder" color={color} />,
       }}
       />
     </Tabs>

@@ -158,3 +158,91 @@ export const deleteProduct = async (productId: string) => {
     return { success: false, message: error.message || "Error deleting product" };
   }
 };
+
+// Get all groups the user is in
+export const getGroups = async () => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+    if (!token) return { success: false, message: "Unauthorized" };
+
+    const response = await fetch(`${API_URL}/groups`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Error retrieving groups");
+
+    return { success: true, groups: data };
+  } catch (error: any) {
+    return { success: false, message: error.message || "Error retrieving groups" };
+  }
+};
+
+// Create a new group
+export const createGroup = async (groupName: string) => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+    if (!token) return { success: false, message: "Unauthorized" };
+
+    const response = await fetch(`${API_URL}/groups`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ group_name: groupName }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Error creating group");
+
+    return { success: true, group: data.group };
+  } catch (error: any) {
+    return { success: false, message: error.message || "Error creating group" };
+  }
+};
+
+// Join a group by its code
+export const joinGroup = async (groupCode: string) => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+    if (!token) return { success: false, message: "Unauthorized" };
+
+    const response = await fetch(`${API_URL}/groups/join`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ group_code: groupCode }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Error joining group");
+
+    return { success: true, message: data.message };
+  } catch (error: any) {
+    return { success: false, message: error.message || "Error joining group" };
+  }
+};
+
+// Get current user's score
+export const getUserScore = async () => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+    if (!token) return { success: false, message: "Unauthorized" };
+
+    const response = await fetch(`${API_URL}/user/score`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Error retrieving score");
+
+    return { success: true, score: data.score };
+  } catch (error: any) {
+    return { success: false, message: error.message || "Error retrieving score" };
+  }
+};
