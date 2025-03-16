@@ -1,5 +1,4 @@
-
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,6 +8,7 @@ import {
   TextInput,
   Button,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { getGroups, createGroup, joinGroup } from "../../utils/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,11 +19,10 @@ export default function LeaderboardScreen() {
   const [error, setError] = useState<string | null>(null);
   const [groupName, setGroupName] = useState("");
   const [groupCode, setGroupCode] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   const insets = useSafeAreaInsets();
-
-  useEffect(() => {
-    const fetchGroups = async () => {
+  const fetchGroups = async () => {
       setLoading(true);
       const response = await getGroups();
       if (response.success) {
@@ -34,6 +33,14 @@ export default function LeaderboardScreen() {
       setLoading(false);
     };
 
+ 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchGroups();
+    setRefreshing(false);
+  }, []);
+
+  useEffect(() => {
     fetchGroups();
   }, []);
 
@@ -93,6 +100,7 @@ export default function LeaderboardScreen() {
       <FlatList
         data={groups}
         keyExtractor={(item) => item.groupCode}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         renderItem={({ item }) => (
           <View style={styles.groupCard}>
             <Text style={styles.groupName}>{item.groupName}</Text>

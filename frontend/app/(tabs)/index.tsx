@@ -4,6 +4,7 @@ import { getProducts, deleteProduct } from '../../utils/api';
 import { ThemedText } from '@/components/ThemedText';
 import { Swipeable } from 'react-native-gesture-handler';
 
+// TODO: Create reusable refresh component
 export default function HomeScreen() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
