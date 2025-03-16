@@ -118,3 +118,43 @@ export const addProduct = async (
     return { success: false, message: error.message || "Error adding product" };
   }
 };
+
+// Get products
+export const getProducts = async (barcode: string) => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+    if (!token) return { success: false, message: "Unauthorized" };
+
+    const response = await fetch(`${API_URL}/products`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Error retrieving products" );
+
+    return { success: true, product: data };
+  } catch (error: any) {
+    return { success: false, message: error.message || "Error retrieving products" };
+  }
+};
+
+// Delete product
+export const deleteProduct = async (productId: string) => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+    if (!token) return { success: false, message: "Unauthorized" };
+
+    const response = await fetch(`${API_URL}/products/${productId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Error deleting product");
+
+    return { success: true, message: "Product Deleted Successfully!" };
+  } catch (error: any) {
+    return { success: false, message: error.message || "Error deleting product" };
+  }
+};
