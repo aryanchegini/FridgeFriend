@@ -1,74 +1,157 @@
-import { Image, StyleSheet, Platform } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
+import { useEffect, useState, useCallback } from 'react';
+import { View, Text, FlatList, ActivityIndicator, Image, StyleSheet, RefreshControl, TouchableOpacity, Alert } from 'react-native';
+import { getProducts, deleteProduct } from '../../utils/api';
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { Swipeable } from 'react-native-gesture-handler';
 
 export default function HomeScreen() {
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchProducts = async () => {
+    setLoading(true);
+    const response = await getProducts();
+    if (response.success) {
+      setProducts(response.product);
+    } else {
+      setError(response.message);
+    }
+    setLoading(false);
+  };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchProducts();
+    setRefreshing(false);
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const handleDelete = async (productId: string) => {
+    Alert.alert(
+      "Delete Product",
+      "Are you sure you want to remove this product from your fridge?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          onPress: async () => {
+            const response = await deleteProduct(productId);
+            if (response.success) {
+              setProducts((prevProducts) => prevProducts.filter((product) => product._id !== productId));
+            } else {
+              Alert.alert("Error", response.message);
+            }
+          },
+          style: "destructive",
+        },
+      ]
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" />
+        <Text>Loading fridge contents...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={{ color: 'red' }}>Error: {error}</Text>
+      </View>
+    );
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <FlatList
+      data={products}
+      keyExtractor={(item) => item._id}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      ListHeaderComponent={
+        <View style={styles.titleContainer}>
+          <Image
+            source={require('@/assets/images/icon.png')}
+            style={styles.headerImage}
+          />
+          <ThemedText type="title">Your Fridge</ThemedText>
+        </View>
+      }
+      renderItem={({ item }) => (
+        <Swipeable
+          renderRightActions={() => (
+            <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item._id)}>
+              <Text style={styles.deleteText}>Delete</Text>
+            </TouchableOpacity>
+          )}
+        >
+          <View style={styles.productCard}>
+            <Image
+              source={require('@/assets/images/icon.png')} // Placeholder 
+              style={styles.productImage}
+            />
+            <View>
+              <ThemedText type="subtitle">{item.productName}</ThemedText>
+              <Text>Quantity: {item.quantity}</Text>
+              <Text>Expiry: {new Date(item.dateOfExpiry).toDateString()}</Text>
+              <Text>Status: {item.status === 'not_expired' ? 'Fresh' : 'Expired'}</Text>
+            </View>
+          </View>
+        </Swipeable>
+      )}
+      contentContainerStyle={{ paddingBottom: 16 }}
+    />
   );
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   titleContainer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  headerImage: {
+    width: '100%',
+    height: 150,
+    resizeMode: 'cover',
+    marginBottom: 16,
+  },
+  productCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: 'white',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  productImage: {
+    width: 50,
+    height: 50,
+    marginRight: 16,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  deleteButton: {
+    backgroundColor: 'red',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    height: '100%',
+    borderRadius: 5,
+  },
+  deleteText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
+
+
