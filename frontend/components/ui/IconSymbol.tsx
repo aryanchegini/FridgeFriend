@@ -14,6 +14,7 @@ const MAPPING = {
   'barcode.viewfinder': 'barcode-scan', // TODO: Fix barcode icon not rendering on web
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'camera.rotate.fill':'flip-camera-ios',
 } as Partial<
   Record<
     import('expo-symbols').SymbolViewProps['name'],
