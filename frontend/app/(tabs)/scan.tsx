@@ -197,7 +197,7 @@ export default function Scan() {
 
           <View style={[styles.buttonContainer, { bottom: tabBarHeight }]}>
             <TouchableOpacity style={styles.circleButton} onPress={toggleCameraType}>
-              <IconSymbol name="chevron.left.forwardslash.chevron.right" size={24} color="white" />
+              <IconSymbol name="camera.rotate.fill" size={24} color="white" />
             </TouchableOpacity>
             
             <TouchableOpacity 
