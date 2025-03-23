@@ -1,3 +1,4 @@
+// app/(tabs)/index.tsx
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { 
   View, 
@@ -6,16 +7,15 @@ import {
   RefreshControl, 
   TouchableOpacity, 
   Alert,
-  Image,
   Animated,
   Dimensions,
-  StatusBar
+  StatusBar,
+  FlatList,
+  ScrollView  // Added ScrollView import
 } from 'react-native';
-import { getProducts, deleteProduct } from '../../utils/api';
+import { getProducts, deleteProduct, updateProductStatus } from '../../utils/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { Swipeable } from 'react-native-gesture-handler';
-import { IconSymbol } from '@/components/ui/IconSymbol';
 import { theme } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
@@ -39,11 +39,27 @@ const getDaysUntilExpiry = (expiryDate: string) => {
   return diffDays;
 };
 
+// Get emoji icon based on product status
+const getProductEmoji = (daysUntilExpiry: number, status: string) => {
+  if (status === 'consumed') {
+    return '✅';
+  } else if (status === 'expired' || daysUntilExpiry < 0) {
+    return '⚠️';
+  } else if (daysUntilExpiry <= 3) {
+    return '⏱️';
+  } else if (daysUntilExpiry <= 7) {
+    return '🥗';
+  } else {
+    return '🍎';
+  }
+};
+
 export default function HomeScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [groupedProducts, setGroupedProducts] = useState<{
     expiringSoon: Product[];
     fresh: Product[];
@@ -56,7 +72,7 @@ export default function HomeScreen() {
     consumed: []
   });
   
-  const [activeTab, setActiveTab] = useState<'all' | 'expiring' | 'expired'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'expiring' | 'expired' | 'consumed'>('all');
   
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
@@ -66,15 +82,17 @@ export default function HomeScreen() {
     setLoading(true);
     setError(null);
     try {
-      // The API expects a barcode parameter, but we pass an empty string when fetching all products
-      const response = await getProducts('');
+      const response = await getProducts();
       if (response.success) {
+        console.log("Fetched products:", response.product.length);
         setProducts(response.product);
         groupProducts(response.product);
       } else {
+        console.error("Error fetching products:", response.message);
         setError(response.message);
       }
     } catch (err) {
+      console.error("Exception fetching products:", err);
       setError('Failed to fetch products');
     } finally {
       setLoading(false);
@@ -106,9 +124,13 @@ export default function HomeScreen() {
       }
     });
 
-    // Sort by expiry date (soonest first)
+    // Sort by expiry date (soonest first for active products)
     grouped.expiringSoon.sort((a, b) => new Date(a.dateOfExpiry).getTime() - new Date(b.dateOfExpiry).getTime());
     grouped.fresh.sort((a, b) => new Date(a.dateOfExpiry).getTime() - new Date(b.dateOfExpiry).getTime());
+    
+    // Sort consumed products by most recently consumed (assuming dateLogged is updated on consumption)
+    // If no specific timestamp is available, we can use _id as a rough proxy since MongoDB ObjectIDs contain a timestamp
+    grouped.consumed.sort((a, b) => b._id.localeCompare(a._id));
     
     setGroupedProducts(grouped);
   };
@@ -133,16 +155,22 @@ export default function HomeScreen() {
           text: "Delete",
           onPress: async () => {
             try {
+              setActionInProgress(productId);
               const response = await deleteProduct(productId);
               if (response.success) {
+                console.log("Product deleted successfully:", productId);
                 const updatedProducts = products.filter((product) => product._id !== productId);
                 setProducts(updatedProducts);
                 groupProducts(updatedProducts);
               } else {
+                console.error("Error deleting product:", response.message);
                 Alert.alert("Error", response.message);
               }
             } catch (error) {
+              console.error("Exception deleting product:", error);
               Alert.alert("Error", "Failed to delete product");
+            } finally {
+              setActionInProgress(null);
             }
           },
           style: "destructive",
@@ -151,63 +179,41 @@ export default function HomeScreen() {
     );
   };
 
-  // Since updateProductStatus is not available in the API utility yet, 
-  // let's implement a simplified version that only updates the local state
   const markAsConsumed = async (productId: string) => {
     try {
-      // For now, we'll just update the UI state without an API call
-      // TODO: Replace this with a proper API call when the endpoint is available
-      const updatedProducts = products.map(product => 
-        product._id === productId 
-          ? { ...product, status: 'consumed' as const } 
-          : product
-      );
-      setProducts(updatedProducts);
-      groupProducts(updatedProducts);
+      setActionInProgress(productId);
+      console.log("Marking product as consumed:", productId);
       
-      // Give feedback to the user
-      Alert.alert("Success", "Product marked as consumed");
+      // Call the API to update the product status
+      const response = await updateProductStatus(productId, 'consumed');
       
+      if (response.success) {
+        console.log("Product marked as consumed successfully:", productId);
+        // Update local state to reflect the change
+        const updatedProducts = products.map(product => 
+          product._id === productId 
+            ? { ...product, status: 'consumed' as const } 
+            : product
+        );
+        
+        setProducts(updatedProducts);
+        groupProducts(updatedProducts);
+        
+        // Feedback to user
+        Alert.alert("Success", "Product marked as consumed");
+      } else {
+        console.error("API Error marking product as consumed:", response.message);
+        Alert.alert("Error", response.message || "Failed to mark product as consumed");
+      }
     } catch (error) {
+      console.error("Exception marking product as consumed:", error);
       Alert.alert("Error", "Failed to mark product as consumed");
+    } finally {
+      setActionInProgress(null);
     }
   };
 
-  const renderSwipeableProduct = ({ item }: { item: Product }) => {
-    let swipeableRef: Swipeable | null = null;
-    
-    const closeSwipeable = () => {
-      if (swipeableRef) {
-        swipeableRef.close();
-      }
-    };
-
-    const renderRightActions = () => (
-      <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.consumeButton]} 
-          onPress={() => {
-            markAsConsumed(item._id);
-            closeSwipeable();
-          }}
-        >
-          <IconSymbol name="house.fill" size={20} color="#fff" />
-          <Text style={styles.actionButtonText}>Consumed</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.deleteButton]} 
-          onPress={() => {
-            handleDelete(item._id);
-            closeSwipeable();
-          }}
-        >
-          <IconSymbol name="house.fill" size={20} color="#fff" />
-          <Text style={styles.actionButtonText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-    );
-
+  const renderProductItem = ({ item }: { item: Product }) => {
     // Calculate days until expiry
     const daysUntilExpiry = getDaysUntilExpiry(item.dateOfExpiry);
 
@@ -223,31 +229,30 @@ export default function HomeScreen() {
       statusLabel = "Expired";
     } else if (daysUntilExpiry <= 3) {
       statusColor = "#FF9800"; // orange
-      statusLabel = `Expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''}`;
+      statusLabel = `${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''} left`;
     } else {
-      statusLabel = `Expires in ${daysUntilExpiry} days`;
+      statusLabel = `${daysUntilExpiry} days left`;
     }
 
+    // Get emoji for product
+    const productEmoji = getProductEmoji(daysUntilExpiry, item.status);
+
+    // Only show action buttons if not already consumed
+    const showActions = item.status !== 'consumed';
+    const isProcessing = actionInProgress === item._id;
+
     return (
-      <Swipeable
-        ref={ref => swipeableRef = ref}
-        renderRightActions={renderRightActions}
-        friction={2}
-        overshootRight={false}
-      >
-        <View style={styles.productCard}>
-          <View style={styles.productIconContainer}>
-            {/* Placeholder icon - would be replaced with actual food category icons */}
-            <IconSymbol 
-              name="house.fill" 
-              size={32} 
-              color={statusColor} 
-            />
+      <View style={styles.productCard}>
+        <View style={styles.productCardContent}>
+          <View style={[styles.productIconContainer, { backgroundColor: statusColor + '15' }]}>
+            <Text style={styles.productEmoji}>{productEmoji}</Text>
           </View>
           
           <View style={styles.productDetails}>
-            <Text style={styles.productName}>{item.productName}</Text>
-            <Text style={styles.productQuantity}>Quantity: {item.quantity}</Text>
+            <Text style={styles.productName} numberOfLines={1} ellipsizeMode="tail">
+              {item.productName}
+            </Text>
+            <Text style={styles.productQuantity}>Qty: {item.quantity}</Text>
             <View style={[styles.statusChip, { backgroundColor: statusColor + '20' }]}>
               <Text style={[styles.statusText, { color: statusColor }]}>
                 {statusLabel}
@@ -264,7 +269,49 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
-      </Swipeable>
+        
+        {/* Action buttons displayed directly in the card */}
+        {showActions && (
+          <View style={styles.actionContainer}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => markAsConsumed(item._id)}
+              disabled={isProcessing}
+            >
+              <Text style={[styles.actionButtonText, isProcessing && styles.actionButtonTextDisabled]}>
+                {isProcessing ? '⏳' : '✅'} Consumed
+              </Text>
+            </TouchableOpacity>
+            
+            <View style={styles.buttonDivider} />
+            
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => handleDelete(item._id)}
+              disabled={isProcessing}
+            >
+              <Text style={[styles.actionButtonText, isProcessing && styles.actionButtonTextDisabled]}>
+                {isProcessing ? '⏳' : '🗑️'} Delete
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* For consumed items, just show delete option */}
+        {!showActions && (
+          <View style={styles.actionContainer}>
+            <TouchableOpacity 
+              style={[styles.actionButton, styles.fullWidthButton]}
+              onPress={() => handleDelete(item._id)}
+              disabled={isProcessing}
+            >
+              <Text style={[styles.actionButtonText, isProcessing && styles.actionButtonTextDisabled]}>
+                {isProcessing ? '⏳' : '🗑️'} Delete
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     );
   };
 
@@ -287,14 +334,15 @@ export default function HomeScreen() {
         
         <View style={[styles.headerContent, { paddingTop: insets.top }]}>
           <View style={styles.titleContainer}>
-            <Image
-              source={require('@/assets/images/icon.png')}
-              style={styles.logo}
-            />
+            <Text style={styles.titleEmoji}>🍎</Text>
             <Text style={styles.title}>My Fridge</Text>
           </View>
 
-          <View style={styles.tabsContainer}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabsContainer}
+          >
             <TouchableOpacity 
               style={[styles.tab, activeTab === 'all' && styles.activeTab]} 
               onPress={() => setActiveTab('all')}
@@ -331,7 +379,21 @@ export default function HomeScreen() {
                 </View>
               )}
             </TouchableOpacity>
-          </View>
+            
+            <TouchableOpacity 
+              style={[styles.tab, activeTab === 'consumed' && styles.activeTab]} 
+              onPress={() => setActiveTab('consumed')}
+            >
+              <Text style={[styles.tabText, activeTab === 'consumed' && styles.activeTabText]}>
+                Consumed
+              </Text>
+              {groupedProducts.consumed.length > 0 && (
+                <View style={[styles.badge, styles.consumedBadge]}>
+                  <Text style={styles.badgeText}>{groupedProducts.consumed.length}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
         </View>
       </View>
     );
@@ -343,8 +405,11 @@ export default function HomeScreen() {
         return groupedProducts.expiringSoon;
       case 'expired':
         return groupedProducts.expired;
+      case 'consumed':
+        return groupedProducts.consumed;
       case 'all':
       default:
+        // Notice we don't include consumed items in "All" tab
         return [...groupedProducts.expiringSoon, ...groupedProducts.fresh, ...groupedProducts.expired];
     }
   };
@@ -353,10 +418,7 @@ export default function HomeScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.loadingContainer}>
-          <Image
-            source={require('@/assets/images/icon.png')}
-            style={styles.loadingImage}
-          />
+          <Text style={styles.loadingEmoji}>🔄</Text>
           <Text style={styles.loadingText}>Loading your fridge...</Text>
         </View>
       </View>
@@ -371,17 +433,17 @@ export default function HomeScreen() {
       
       {error ? (
         <View style={styles.errorContainer}>
-          <IconSymbol name="house.fill" size={50} color="#F44336" />
+          <Text style={styles.errorEmoji}>⚠️</Text>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={fetchProducts}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <Animated.FlatList
+        <FlatList
           data={getFilteredProducts()}
           keyExtractor={(item) => item._id}
-          renderItem={renderSwipeableProduct}
+          renderItem={renderProductItem}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl 
@@ -393,20 +455,32 @@ export default function HomeScreen() {
           }
           ListEmptyComponent={() => (
             <View style={styles.emptyContainer}>
-              <IconSymbol name="house.fill" size={50} color={theme.colors.secondary} />
+              <Text style={styles.emptyEmoji}>
+                {activeTab === 'all' 
+                  ? "🛒" 
+                  : activeTab === 'expiring' 
+                    ? "👍" 
+                    : activeTab === 'expired'
+                      ? "👏"
+                      : "🍽️"}
+              </Text>
               <Text style={styles.emptyText}>
                 {activeTab === 'all' 
                   ? "Your fridge is empty" 
                   : activeTab === 'expiring' 
                     ? "No items expiring soon" 
-                    : "No expired items"}
+                    : activeTab === 'expired'
+                      ? "No expired items"
+                      : "No consumed items"}
               </Text>
               <Text style={styles.emptySubText}>
                 {activeTab === 'all' 
                   ? "Add some items by scanning their barcodes" 
                   : activeTab === 'expiring' 
                     ? "All your items are fresh" 
-                    : "Great job keeping your fridge fresh!"}
+                    : activeTab === 'expired'
+                      ? "Great job keeping your fridge fresh!"
+                      : "Items you mark as consumed will appear here"}
               </Text>
             </View>
           )}
@@ -432,10 +506,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  loadingImage: {
-    width: 100,
-    height: 100,
-    marginBottom: 20,
+  loadingEmoji: {
+    fontSize: 40,
+    marginBottom: 16,
   },
   loadingText: {
     fontSize: 18,
@@ -469,10 +542,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 8,
   },
-  logo: {
-    width: 32,
-    height: 32,
-    marginRight: 10,
+  titleEmoji: {
+    fontSize: 24,
+    marginRight: 8,
   },
   title: {
     fontSize: 24,
@@ -482,6 +554,7 @@ const styles = StyleSheet.create({
   tabsContainer: {
     flexDirection: 'row',
     paddingBottom: 8,
+    paddingRight: 16, // Add some padding for horizontal scroll
   },
   tab: {
     paddingVertical: 8,
@@ -510,6 +583,9 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     marginLeft: 6,
   },
+  consumedBadge: {
+    backgroundColor: '#4CAF50',
+  },
   badgeText: {
     color: '#fff',
     fontSize: 10,
@@ -521,20 +597,30 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   productCard: {
-    flexDirection: 'row',
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+  },
+  productCardContent: {
+    flexDirection: 'row',
+    padding: 14,
     alignItems: 'center',
   },
   productIconContainer: {
-    marginRight: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  productEmoji: {
+    fontSize: 20,
   },
   productDetails: {
     flex: 1,
@@ -543,12 +629,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   productQuantity: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   statusChip: {
     alignSelf: 'flex-start',
@@ -563,37 +649,47 @@ const styles = StyleSheet.create({
   dateContainer: {
     marginLeft: 8,
     alignItems: 'center',
+    width: 54,
   },
   expiryDate: {
     fontSize: 12,
     color: '#666',
     fontWeight: '500',
   },
-  actionButtons: {
+  actionContainer: {
     flexDirection: 'row',
-    width: 160,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
   },
   actionButton: {
     flex: 1,
+    paddingVertical: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  consumeButton: {
-    backgroundColor: theme.colors.secondary,
-  },
-  deleteButton: {
-    backgroundColor: '#F44336',
+  fullWidthButton: {
+    width: '100%',
   },
   actionButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: 14,
+    color: '#666',
+  },
+  actionButtonTextDisabled: {
+    color: '#ccc',
+  },
+  buttonDivider: {
+    width: 1,
+    backgroundColor: '#f0f0f0',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  errorEmoji: {
+    fontSize: 40,
+    marginBottom: 16,
   },
   errorText: {
     fontSize: 18,
@@ -616,6 +712,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 40,
     height: 300,
+  },
+  emptyEmoji: {
+    fontSize: 50,
+    marginBottom: 16,
   },
   emptyText: {
     fontSize: 18,

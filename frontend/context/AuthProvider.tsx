@@ -81,6 +81,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (token: string) => {
     try {
+      // Validate token before storing it
+      if (!token) {
+        throw new Error("No token provided for sign in");
+      }
+      
       console.log("Signing in with token...");
       await AsyncStorage.setItem('userToken', token);
       setAuthToken(token);

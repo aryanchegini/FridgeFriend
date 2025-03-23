@@ -1,7 +1,9 @@
+// utils/api.ts
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000/api/auth"; 
-
+// Get the base URL from environment variable or use a fallback
+// Make sure this points to the correct API endpoint
+const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000"; 
 
 // Register User
 export const registerUser = async (name: string, email: string, password: string) => {
@@ -13,12 +15,22 @@ export const registerUser = async (name: string, email: string, password: string
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.message || "Registration failed");
+    
+    if (!response.ok) {
+      throw new Error(data.message || "Registration failed");
+    }
 
-    // Store token on successful registration
-    await AsyncStorage.setItem("userToken", data.token);
-    return { success: true, user: data.user };
+    // Check if token exists before storing
+    if (data.token) {
+      await AsyncStorage.setItem("userToken", data.token);
+      return { success: true, user: data.user, token: data.token };
+    } else {
+      console.warn("No token received from registration endpoint");
+      return { success: true, user: data.user, token: null };
+    }
+    
   } catch (error: any) {
+    console.error("Registration error:", error.message);
     return { success: false, message: error.message || "Error registering user" };
   }
 };
@@ -26,6 +38,8 @@ export const registerUser = async (name: string, email: string, password: string
 // Login User
 export const loginUser = async (email: string, password: string) => {
   try {
+    console.log(`Attempting to login with email: ${email}`);
+    
     const response = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -33,12 +47,26 @@ export const loginUser = async (email: string, password: string) => {
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.message || "Login failed");
+    console.log("Login response:", JSON.stringify(data));
+    
+    if (!response.ok) {
+      throw new Error(data.message || "Login failed");
+    }
 
-    // Store token on successful login
-    await AsyncStorage.setItem("userToken", data.token);
-    return { success: true, user: data.user };
+    // Verify token exists before storing
+    if (data.token) {
+      await AsyncStorage.setItem("userToken", data.token);
+      return { 
+        success: true, 
+        user: { ...data.user, token: data.token }  // Include token in user object
+      };
+    } else {
+      console.error("No token received from login endpoint");
+      throw new Error("Authentication failed: No token received");
+    }
+    
   } catch (error: any) {
+    console.error("Login error:", error.message);
     return { success: false, message: error.message || "Error logging in" };
   }
 };
@@ -47,25 +75,42 @@ export const loginUser = async (email: string, password: string) => {
 export const fetchUserData = async () => {
   try {
     const token = await AsyncStorage.getItem("userToken");
-    if (!token) return { success: false, message: "Unauthorized" };
+    if (!token) {
+      console.log("No token found, user is not authenticated");
+      return { success: false, message: "Unauthorized" };
+    }
 
-    const response = await fetch(`${API_URL}/me`, {
+    const response = await fetch(`${API_URL}/auth/me`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.message || "Failed to fetch user data");
+    
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to fetch user data");
+    }
 
-    return { success: true, user: data.data };
+    return { success: true, user: data.data || data };
+    
   } catch (error: any) {
+    console.error("Error fetching user data:", error.message);
     return { success: false, message: error.message || "Error fetching user data" };
   }
 };
 
 // Logout (Remove Token)
 export const logoutUser = async () => {
-  await AsyncStorage.removeItem("userToken");
+  try {
+    await AsyncStorage.removeItem("userToken");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Logout error:", error.message);
+    return { success: false, message: error.message };
+  }
 };
 
 
@@ -120,7 +165,7 @@ export const addProduct = async (
 };
 
 // Get products
-export const getProducts = async (barcode: string) => {
+export const getProducts = async () => {
   try {
     const token = await AsyncStorage.getItem("userToken");
     if (!token) return { success: false, message: "Unauthorized" };
@@ -244,5 +289,31 @@ export const getUserScore = async () => {
     return { success: true, score: data.score };
   } catch (error: any) {
     return { success: false, message: error.message || "Error retrieving score" };
+  }
+};
+
+// Add this function to your utils/api.ts file
+
+// Update product status (Add this function to your API utilities)
+export const updateProductStatus = async (productId: string, status: string) => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+    if (!token) return { success: false, message: "Unauthorized" };
+
+    const response = await fetch(`${API_URL}/products/${productId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Failed to update product status");
+
+    return { success: true, product: data };
+  } catch (error: any) {
+    return { success: false, message: error.message || "Error updating product status" };
   }
 };

@@ -251,7 +251,7 @@ const updateExpiryAndScores = asyncHandler(async () => {
       const daysRemaining = calculateDaysRemaining(product.dateOfExpiry);
       
       // Check if product has expired
-      if (daysRemaining < 0 && originalStatus === 'not_expired') {
+      if (daysRemaining <= 0 && originalStatus === 'not_expired') {
         product.status = 'expired';
         await product.save();
       }
