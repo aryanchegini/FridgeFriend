@@ -1,3 +1,4 @@
+//notifications.routes.js
 const express = require("express");
 const router = express.Router();
 const User = require("../models/user.model");
@@ -350,6 +351,42 @@ router.post("/test/direct", async (req, res) => {
       message: "Error sending test notification",
       error: error.message
     });
+  }
+});
+
+const Notification = require("../models/notification.model");
+
+router.get("/inbox", async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const notifications = await Notification.find({ userId }).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, notifications });
+  } catch (error) {
+    logger.error(`Error fetching inbox: ${error.message}`);
+    res.status(500).json({ success: false, message: "Failed to fetch notifications" });
+  }
+});
+
+// Mark as read
+router.patch("/:id/read", authenticate, async (req, res) => {
+  try {
+    await Notification.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      { read: true }
+    );
+    res.status(200).json({ success: true, message: "Marked as read" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to mark as read" });
+  }
+});
+
+// Delete notification
+router.delete("/:id", authenticate, async (req, res) => {
+  try {
+    await Notification.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
+    res.status(200).json({ success: true, message: "Notification deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to delete notification" });
   }
 });
 
