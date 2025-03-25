@@ -172,15 +172,26 @@ export default function GroupsScreen() {
       Alert.alert("Error", "Group name is required");
       return;
     }
-
+  
     try {
       const response = await createGroup(groupName);
       if (response.success) {
         hideModal('create');
         Alert.alert("Success", `Group "${response.group.groupName}" created!`);
         setGroupName("");
+        
+        // Make sure the new group has the expected structure
+        // specifically including a leaderboard array
+        const newGroup = {
+          ...response.group,
+          leaderboard: response.group.leaderboard || [] // Add empty leaderboard if missing
+        };
+        
         // Add the new group to the list
-        setGroups((prevGroups) => [...prevGroups, response.group]);
+        setGroups((prevGroups) => [...prevGroups, newGroup]);
+        
+        // Alternatively, refresh the full group list
+        fetchGroups();
       } else {
         Alert.alert("Error", response.message);
       }

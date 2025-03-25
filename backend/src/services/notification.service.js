@@ -1,5 +1,7 @@
 const { Expo } = require("expo-server-sdk");
 const logger = require("../utils/logger");
+const Notification = require("../models/notification.model");
+
 
 // Create a new Expo SDK client
 const expo = new Expo();
@@ -82,7 +84,7 @@ const sendNotifications = async (messages) => {
  * @param {Number} daysRemaining - Days remaining until expiration
  * @returns {Object} - Formatted notification message
  */
-const createExpirationMessage = (pushToken, productName, daysRemaining) => {
+const createExpirationMessage = async(userId, pushToken, productName, daysRemaining) => {
   const title =
     daysRemaining <= 0 ? "Food Expired Today!" : "Food Expiring Soon!";
 
@@ -92,6 +94,14 @@ const createExpirationMessage = (pushToken, productName, daysRemaining) => {
       : `${productName} will expire in ${daysRemaining} day${
           daysRemaining > 1 ? "s" : ""
         }. Use it soon!`;
+
+    await Notification.create({
+    userId,
+    type: "FOOD_EXPIRY",
+    title,
+    body,
+    data: { productName, daysRemaining },
+  });
 
   return {
     to: pushToken,
@@ -114,7 +124,7 @@ const createExpirationMessage = (pushToken, productName, daysRemaining) => {
  * @param {Number} pointsToNext - Points needed to reach next rank
  * @returns {Object} - Formatted notification message
  */
-const createLeaderboardMessage = (pushToken, groupName, rank, pointsToNext) => {
+const createLeaderboardMessage = async(userId, pushToken, groupName, rank, pointsToNext) => {
   let title, body;
 
   if (rank === 1) {
@@ -127,6 +137,14 @@ const createLeaderboardMessage = (pushToken, groupName, rank, pointsToNext) => {
     title = "Leaderboard Update";
     body = `You're ranked #${rank} in ${groupName}. ${pointsToNext} points to move up.`;
   }
+  
+    await Notification.create({
+    userId,
+    type: "LEADERBOARD_UPDATE",
+    title,
+    body,
+    data: { groupName, rank, pointsToNext },
+  });
 
   return {
     to: pushToken,

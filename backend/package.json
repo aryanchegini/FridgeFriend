@@ -17,6 +17,7 @@
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
+    "eas-cli": "^16.0.1",
     "expo-server-sdk": "^3.14.0",
     "express": "^4.21.2",
     "express-async-handler": "^1.2.0",
