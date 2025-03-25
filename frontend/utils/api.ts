@@ -292,7 +292,6 @@ export const getUserScore = async () => {
   }
 };
 
-// Add this function to your utils/api.ts file
 
 // Update product status (Add this function to your API utilities)
 export const updateProductStatus = async (productId: string, status: string) => {
@@ -317,3 +316,73 @@ export const updateProductStatus = async (productId: string, status: string) => 
     return { success: false, message: error.message || "Error updating product status" };
   }
 };
+
+//  Get inbox
+export const getNotificationsInbox = async () => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+    if (!token) return { success: false, message: "Unauthorized" };
+
+    const response = await fetch(`${API_URL}/notifications/inbox`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Error fetching notifications");
+
+    return { success: true, notifications: data.notifications };
+  } catch (error: any) {
+    return { success: false, message: error.message || "Error fetching notifications" };
+  }
+};
+
+// Mark notification as read
+export const markNotificationAsRead = async (notificationId: string) => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+    if (!token) return { success: false, message: "Unauthorized" };
+
+    const response = await fetch(`${API_URL}/notifications/${notificationId}/read`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Error marking notification as read");
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, message: error.message || "Error marking notification as read" };
+  }
+};
+
+// Delete a notification
+export const deleteNotification = async (notificationId: string) => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+    if (!token) return { success: false, message: "Unauthorized" };
+
+    const response = await fetch(`${API_URL}/notifications/${notificationId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Error deleting notification");
+
+    return { success: true, message: data.message };
+  } catch (error: any) {
+    return { success: false, message: error.message || "Error deleting notification" };
+  }
+};
+
