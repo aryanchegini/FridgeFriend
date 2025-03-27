@@ -3,14 +3,22 @@ const request = require("supertest");
 const app = require("../../src/app");
 const connectDB = require("../../src/config/mongoose.config");
 
+
 beforeAll(async () => {
-  await connectDB();
+  await mongoose.connect(process.env.MONGODB_TEST_URI);
+});
+
+afterEach(async () => {
+  const collections = await mongoose.connection.db.collections();
+  for (let collection of collections) {
+    await collection.deleteMany(); // only clear data, not drop DB
+  }
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
   await mongoose.connection.close();
 });
+
 
 describe("Auth Controller", () => {
   describe("POST /auth/register", () => {

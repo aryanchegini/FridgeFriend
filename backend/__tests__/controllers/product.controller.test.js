@@ -1,15 +1,15 @@
 const mongoose = require("mongoose");
 const request = require("supertest");
+require("dotenv").config({ path: ".env.test" }); // Use test DB
+
 const app = require("../../src/app");
-const connectDB = require("../../src/config/mongoose.config");
 
 let token;
 let userId;
 let productId;
 
-// Setup
 beforeAll(async () => {
-  await connectDB();
+  await mongoose.connect(process.env.MONGODB_TEST_URI);
 
   await request(app).post("/auth/register").send({
     name: "testuserproduct",
@@ -26,16 +26,43 @@ beforeAll(async () => {
   userId = loginResponse.body.user._id;
 
   await request(app)
-    .post("/groups/create-inventory") // used to create inventory
+    .post("/groups/create-inventory")
+    .set("Authorization", `Bearer ${token}`);
+});
+
+afterEach(async () => {
+  const collections = await mongoose.connection.db.collections();
+  for (let collection of collections) {
+    await collection.deleteMany();
+  }
+
+  // Re-create token + inventory after clearing data
+  await request(app).post("/auth/register").send({
+    name: "testuserproduct",
+    email: "testuserproduct@example.com",
+    password: "testuserproduct123",
+  });
+
+  const loginResponse = await request(app).post("/auth/login").send({
+    email: "testuserproduct@example.com",
+    password: "testuserproduct123",
+  });
+
+  token = loginResponse.body.token;
+
+  await request(app)
+    .post("/groups/create-inventory")
     .set("Authorization", `Bearer ${token}`);
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
   await mongoose.connection.close();
 });
 
+
+// ======================
 // Testing products
+// ======================
 describe("Product Controller", () => {
   describe("POST /products", () => {
     it("should create a product successfully", async () => {
@@ -109,7 +136,7 @@ describe("Product Controller", () => {
 
     it("should update product status to consumed", async () => {
       const res = await request(app)
-        .patch(`/products/${productId}`)
+        .patch(`/products/${localProductId}`)
         .set("Authorization", `Bearer ${token}`)
         .send({ status: "consumed" });
 
@@ -119,7 +146,7 @@ describe("Product Controller", () => {
 
     it("should fail with invalid status", async () => {
       const res = await request(app)
-        .patch(`/products/${productId}`)
+        .patch(`/products/${localProductId}`)
         .set("Authorization", `Bearer ${token}`)
         .send({ status: "invalid_status" });
 
@@ -153,12 +180,10 @@ describe("Product Controller", () => {
     });
 
     it("should fail if product doesn’t exist", async () => {
-      // Delete once
       await request(app)
         .delete(`/products/${deleteProductId}`)
         .set("Authorization", `Bearer ${token}`);
 
-      // Try deleting again
       const res = await request(app)
         .delete(`/products/${deleteProductId}`)
         .set("Authorization", `Bearer ${token}`);
