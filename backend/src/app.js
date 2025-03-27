@@ -4,14 +4,13 @@ const dotenv = require("dotenv").config();
 const helmet = require("helmet");
 const morgan = require("morgan");
 
-const connectDB = require("./config/mongoose.config.js");
+
 const logger = require("./utils/logger.js")
 const errorHandler = require("./middleware/error.middleware.js");
 const { setupNotificationScheduler } = require('./controllers/notification.controller');
 const { setupScheduledTasks } = require('./controllers/product.controller');
 
 const app = express();
-connectDB();
 setupNotificationScheduler();
 setupScheduledTasks();
 
