@@ -1,3 +1,4 @@
+// __tests__/controllers/product.scores.controller.test.js
 const mongoose = require("mongoose");
 const request = require("supertest");
 require("dotenv").config({ path: ".env.test" }); // Use test DB
@@ -9,48 +10,39 @@ const UserInventory = require("../../src/models/userInventory.model");
 let token;
 let userId;
 
-beforeAll(async () => {
-  await mongoose.connect(process.env.MONGODB_TEST_URI);
-
-  // Register test user
-  await request(app).post("/auth/register").send({
-    name: "testuserscore",
-    email: "testuserscore@example.com",
-    password: "testuserscore123",
-  });
-
-  // Login to get token and user ID
-  const loginResponse = await request(app).post("/auth/login").send({
-    email: "testuserscore@example.com",
-    password: "testuserscore123",
-  });
-
-  // Extract token and user info
-  token = loginResponse.body.token;
-  userId = loginResponse.body.user.id;
-
-  // Ensure we have a user inventory
-  const existingInventory = await UserInventory.findOne({ userId });
-  if (!existingInventory) {
-    await UserInventory.create({
-      userId,
-      products: [],
-      score: 0,
-    });
-  }
-});
-
-afterEach(async () => {
-  // Clean up products and reset inventory score
-  await Product.deleteMany({});
-  await UserInventory.findOneAndUpdate({ userId }, { score: 0 }, { new: true });
-});
-
-afterAll(async () => {
-  await mongoose.connection.close();
-});
-
 describe("Product Scoring System", () => {
+  beforeEach(async () => {
+    // Register test user
+    const registerResponse = await request(app).post("/auth/register").send({
+      name: "testuserscore",
+      email: "testuserscore@example.com",
+      password: "testuserscore123",
+    });
+
+    // Extract token and user info
+    token = registerResponse.body.token;
+    userId = registerResponse.body.user.id;
+
+    // Ensure we have a user inventory (should be created during registration)
+    const existingInventory = await UserInventory.findOne({ userId });
+    if (!existingInventory) {
+      await UserInventory.create({
+        userId,
+        products: [],
+        score: 0,
+      });
+    } else {
+      // Reset the score to ensure test isolation
+      existingInventory.score = 0;
+      await existingInventory.save();
+    }
+  });
+
+  afterEach(async () => {
+    // Clean up products
+    await Product.deleteMany({});
+  });
+
   describe("Initial scoring on product creation", () => {
     it("should add correct points for a product expiring in 1 day", async () => {
       // Create a date object for tomorrow

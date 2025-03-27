@@ -1,25 +1,9 @@
+// __tests__/controllers/auth.controller.test.js
 const mongoose = require("mongoose");
 const request = require("supertest");
 const app = require("../../src/app");
-const connectDB = require("../../src/config/mongoose.config");
-require("dotenv").config();
-
-
-beforeAll(async () => {
-  await mongoose.connect(process.env.MONGODB_TEST_URI);
-});
-
-afterEach(async () => {
-  const collections = await mongoose.connection.db.collections();
-  for (let collection of collections) {
-    await collection.deleteMany(); // only clear data, not drop DB
-  }
-});
-
-afterAll(async () => {
-  await mongoose.connection.close();
-});
-
+const User = require("../../src/models/user.model");
+const UserInventory = require("../../src/models/userInventory.model");
 
 describe("Auth Controller", () => {
   describe("POST /auth/register", () => {
@@ -34,11 +18,16 @@ describe("Auth Controller", () => {
 
       expect(response.statusCode).toBe(201);
       expect(response.body).toHaveProperty("token");
+      
+      // Verify user inventory was created
+      const user = await User.findOne({ email: "testuserregister@example.com" });
+      const inventory = await UserInventory.findOne({ userId: user._id });
+      expect(inventory).toBeTruthy();
     });
   });
 
   describe("POST /auth/login", () => {
-    beforeAll(async () => {
+    beforeEach(async () => {
       await request(app).post("/auth/register").send({
         name: "testuserlogin",
         email: "testuserlogin@example.com",
