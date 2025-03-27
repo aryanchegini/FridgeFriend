@@ -122,6 +122,14 @@ router.get("/:code", authenticate, async (req, res) => {
             message: "Product not found in external API",
         });
     } catch (error) {
+        if (error.response && error.response.status === 404) {
+            return res.status(404).json({
+                success: false,
+                message: "Product not found in external API:",
+            });
+        }
+
+
         console.error("Error fetching barcode data:", error.message);
         res.status(500).json({
             success: false,
