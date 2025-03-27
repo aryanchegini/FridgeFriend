@@ -1,69 +1,48 @@
+// __tests__/controllers/product.controller.test.js
 const mongoose = require("mongoose");
 const request = require("supertest");
 require("dotenv").config();
 
 const app = require("../../src/app");
+const Product = require("../../src/models/product.model");
+const UserInventory = require("../../src/models/userInventory.model");
 
 let token;
 let userId;
 let productId;
 
-beforeAll(async () => {
-  await mongoose.connect(process.env.MONGODB_TEST_URI);
-
-  await request(app).post("/auth/register").send({
-    name: "testuserproduct",
-    email: "testuserproduct@example.com",
-    password: "testuserproduct123",
-  });
-
-  const loginResponse = await request(app).post("/auth/login").send({
-    email: "testuserproduct@example.com",
-    password: "testuserproduct123",
-  });
-
-  token = loginResponse.body.token;
-  userId = loginResponse.body.user._id;
-
-  await request(app)
-    .post("/groups/create-inventory")
-    .set("Authorization", `Bearer ${token}`);
-});
-
-afterEach(async () => {
-  const collections = await mongoose.connection.db.collections();
-  for (let collection of collections) {
-    await collection.deleteMany();
-  }
-
-  // Re-create token + inventory after clearing data
-  await request(app).post("/auth/register").send({
-    name: "testuserproduct",
-    email: "testuserproduct@example.com",
-    password: "testuserproduct123",
-  });
-
-  const loginResponse = await request(app).post("/auth/login").send({
-    email: "testuserproduct@example.com",
-    password: "testuserproduct123",
-  });
-
-  token = loginResponse.body.token;
-
-  await request(app)
-    .post("/groups/create-inventory")
-    .set("Authorization", `Bearer ${token}`);
-});
-
-afterAll(async () => {
-  await mongoose.connection.close();
-});
-
-
-// ======================
-// Testing products
-// ======================
 describe("Product Controller", () => {
+  beforeEach(async () => {
+    // Register test user
+    const registerResponse = await request(app).post("/auth/register").send({
+      name: "testuserproduct",
+      email: "testuserproduct@example.com",
+      password: "testuserproduct123",
+    });
+
+    // Extract token and user info
+    token = registerResponse.body.token;
+    userId = registerResponse.body.user.id;
+
+    // Ensure user inventory exists
+    const inventory = await UserInventory.findOne({ userId });
+    if (!inventory) {
+      await UserInventory.create({
+        userId,
+        products: [],
+        score: 0,
+      });
+    }
+  });
+
+  afterEach(async () => {
+    // Clean up products
+    await Product.deleteMany({});
+  });
+
+  // ======================
+  // Testing products
+  // ======================
   describe("POST /products", () => {
     it("should create a product successfully", async () => {
       const res = await request(app)
@@ -179,7 +158,7 @@ describe("Product Controller", () => {
       expect(res.body.message).toMatch(/Deleted/i);
     });
 
-    it("should fail if product doesn’t exist", async () => {
+    it("should fail if product doesn't exist", async () => {
       await request(app)
         .delete(`/products/${deleteProductId}`)
         .set("Authorization", `Bearer ${token}`);
