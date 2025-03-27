@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const request = require("supertest");
 const app = require("../../src/app");
 const connectDB = require("../../src/config/mongoose.config");
+require("dotenv").config();
 
 
 beforeAll(async () => {

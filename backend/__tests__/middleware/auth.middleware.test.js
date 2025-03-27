@@ -2,10 +2,7 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const User = require('../../src/models/user.model');
 const authenticate = require('../../src/middleware/auth.middleware');
-const dotenv = require('dotenv');
-
-// Load environment variables
-dotenv.config();
+require("dotenv").config();
 
 // MongoDB connection options
 const mongoOptions = {
@@ -102,8 +99,12 @@ describe('Authentication Middleware', () => {
   });
 
   test('should return 404 when user not found', async () => {
-    // Simulate JWT verification success with non-existent user
     jest.spyOn(jwt, 'verify').mockReturnValue({ id: 'nonexistent_user_id' });
+    
+    
+    jest.spyOn(User, 'findById').mockReturnValue({
+      select: jest.fn().mockResolvedValue(null)
+    });
     
     await authenticate(req, res, next);
     
@@ -115,18 +116,29 @@ describe('Authentication Middleware', () => {
   test('should call next() and attach user to request when token is valid', async () => {
     // Create a test user in the database
     const user = await createTestUser();
+    const userId = user._id.toString();
     
     // Simulate JWT verification success with valid user ID
-    jest.spyOn(jwt, 'verify').mockReturnValue({ id: user._id.toString() });
+    jest.spyOn(jwt, 'verify').mockReturnValue({ id: userId });
+    
+    // Mock the User.findById to return the user without actually hitting the database
+    jest.spyOn(User, 'findById').mockReturnValue({
+      select: jest.fn().mockResolvedValue({
+        _id: user._id,
+        name: 'Test User',
+        email: 'test@example.com'
+        // No password field, as it would be excluded by select("-password")
+      })
+    });
     
     await authenticate(req, res, next);
     
     expect(next).toHaveBeenCalled();
     expect(req.user).toBeDefined();
-    expect(req.user._id.toString()).toBe(user._id.toString());
+    expect(req.user._id.toString()).toBe(userId);
     expect(req.user.name).toBe('Test User');
     expect(req.user.email).toBe('test@example.com');
-    expect(req.user.password).toBeUndefined(); // Password should be excluded
+    expect(req.user.password).toBeUndefined();
   });
 
   test('should handle database errors gracefully', async () => {
