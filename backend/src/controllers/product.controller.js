@@ -183,7 +183,7 @@ const calculateDaysRemaining = (expiryDate) => {
   const expiry = new Date(expiryDate);
   expiry.setHours(0, 0, 0, 0);
   
-  return Math.floor((expiry - currentDate) / (1000 * 60 * 60 * 24));
+  return Math.ceil((expiry - currentDate) / (1000 * 60 * 60 * 24));
 };
 
 const calculateProductScore = (daysRemaining, status) => {
@@ -211,6 +211,7 @@ const calculateProductScore = (daysRemaining, status) => {
 };
 
 const handleConsumptionScore = asyncHandler(async (productId) => {
+  // ADD 5 POINTS IF A PRODUCT IS MARK AS CONSUMED BEFORE EXPIRY
   const product = await productModel.findById(productId);
   if (!product) return 0;
   
@@ -220,7 +221,7 @@ const handleConsumptionScore = asyncHandler(async (productId) => {
   // Product is consumed before expiry
   if (daysRemaining >= 0) {
     let dayScore = calculateProductScore(daysRemaining, 'not_expired');
-    consumptionBonus = 5; // Day score + 3 points bonus
+    consumptionBonus = 5; // Day score + 5 points bonus
     
     // Update user's inventory score with the consumption bonus
     const inventory = await inventoryModel.findOne({ userId: product.userId });

@@ -56,7 +56,8 @@ const sendExpiryNotifications = asyncHandler(async () => {
       const user = await User.findById(userId);
       
       // Skip if user doesn't exist or has disabled expiry alerts
-      if (!user || !user.notificationSettings?.expiryAlerts || !user.pushTokens || user.pushTokens.length === 0) {
+      // TODO: Add checks:  || !user.pushTokens || user.pushTokens.length === 0
+      if (!user || !user.notificationSettings?.expiryAlerts) {
         continue;
       }
       
@@ -66,17 +67,16 @@ const sendExpiryNotifications = asyncHandler(async () => {
         const daysRemaining = Math.ceil(
           (product.dateOfExpiry - currentDate) / (1000 * 60 * 60 * 24)
         );
-        
-        // Create notification message for each device
-        for (const tokenObj of user.pushTokens) {
-          const message = notificationService.createExpirationMessage(
-            tokenObj.token,
+
+          // Save notification to inbox only (no push)
+          // TODO: Add back push token functionality
+          await notificationService.createExpirationMessage(
+            user._id,
+            null,
             product.productName,
             daysRemaining
           );
-          
-          messages.push(message);
-        }
+        
       }
     }
     
@@ -163,6 +163,7 @@ const sendLeaderboardNotifications = asyncHandler(async () => {
             // Send notification to each device
             for (const tokenObj of user.pushTokens) {
               const message = notificationService.createLeaderboardMessage(
+                user._id,
                 tokenObj.token,
                 group.groupName,
                 rank,
@@ -176,6 +177,7 @@ const sendLeaderboardNotifications = asyncHandler(async () => {
           // Notify the top user on each device
           for (const tokenObj of user.pushTokens) {
             const message = notificationService.createLeaderboardMessage(
+              user._id,
               tokenObj.token,
               group.groupName,
               rank,

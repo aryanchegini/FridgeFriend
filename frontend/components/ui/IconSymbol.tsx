@@ -12,6 +12,7 @@ const MAPPING = {
   'house.fill': 'home',
   'person.2.fill': 'people',
   'barcode.viewfinder': 'barcode-scan', // TODO: Fix barcode icon not rendering on web
+  'tray.and.arrow.down.fill':'mail',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
   'camera.rotate.fill':'flip-camera-ios',
