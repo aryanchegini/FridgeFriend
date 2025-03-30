@@ -252,7 +252,7 @@ export default function GroupsScreen() {
               onChangeText={setGroupName}
               maxLength={30}
             />
-            <TouchableOpacity style={styles.modalButton} onPress={handleCreateGroup}>
+            <TouchableOpacity style={styles.modalButton} onPress={handleCreateGroup} testID="create-group">
               <Text style={styles.modalButtonText}>Create Group</Text>
             </TouchableOpacity>
           </View>
@@ -285,7 +285,7 @@ export default function GroupsScreen() {
               autoCapitalize="characters"
               maxLength={6}
             />
-            <TouchableOpacity style={styles.modalButton} onPress={handleJoinGroup}>
+            <TouchableOpacity style={styles.modalButton} onPress={handleJoinGroup} testID="join-group">
               <Text style={styles.modalButtonText}>Join Group</Text>
             </TouchableOpacity>
           </View>
