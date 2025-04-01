@@ -28,3 +28,4 @@ dist-ssr
 
 coverage/
 .expo/
+expo-env.d.ts
