@@ -1,10 +1,9 @@
-const asyncHandler = require("express-async-handler");
 const logger = require("../utils/logger");
 const Product = require("../models/product.model");
 const UserInventory = require("../models/userInventory.model");
 const scoringService = require("./scoring.service");
 
-const ALLOWED_STATUSES = ["not_expired", "expired", "consumed"];
+const ALLOWED_STATUS = ["not_expired", "expired", "consumed"];
 
 /**
  * Get all products for a user
@@ -54,7 +53,7 @@ const createProduct = async (userId, productData) => {
     // Set default status or validate provided status
     let status = "not_expired";
     if (productData.status) {
-      if (!ALLOWED_STATUSES.includes(productData.status)) {
+      if (!ALLOWED_STATUS.includes(productData.status)) {
         throw new Error("Invalid status");
       }
       status = productData.status;
@@ -96,7 +95,7 @@ const createProduct = async (userId, productData) => {
 const updateProductStatus = async (userId, productId, newStatus) => {
   try {
     // Verify status is valid
-    if (!ALLOWED_STATUSES.includes(newStatus)) {
+    if (!ALLOWED_STATUS.includes(newStatus)) {
       throw new Error("Invalid status");
     }
     
@@ -162,7 +161,10 @@ const deleteProduct = async (userId, productId) => {
     }
     
     // Delete product
-    await Product.findByIdAndDelete(productId);
+    const result = await Product.findByIdAndDelete(productId);
+    if (!result) {
+      return false;
+    }
     return true;
   } catch (error) {
     logger.error(`Error deleting product: ${error.message}`);
@@ -218,6 +220,7 @@ const updateExpiryAndScores = async () => {
     }
 
     logger.info(`Updated expiry status and scores for ${products.length} products`);
+    return true;
   } 
   catch (error) {
     logger.error(`Error in expiry and score updates: ${error.message}`);
@@ -242,6 +245,7 @@ const monthlyCleanup = async () => {
     await updateExpiryAndScores();
     
     logger.info("Monthly cleanup completed");
+    return result.deletedCount;
   } catch (error) {
     logger.error(`Error in monthly cleanup: ${error.message}`);
     throw error;

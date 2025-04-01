@@ -6,6 +6,23 @@ const app = require("../../src/app");
 const Product = require("../../src/models/product.model");
 const UserInventory = require("../../src/models/userInventory.model");
 
+// Mock the scoring service
+jest.mock("../../src/services/scoring.service", () => {
+  const originalModule = jest.requireActual('../../src/services/scoring.service');
+  return {
+    ...originalModule,
+    // We could override functions if needed
+  };
+});
+
+// Mock the product service
+jest.mock("../../src/services/product.service", () => {
+  const originalModule = jest.requireActual('../../src/services/product.service');
+  return {
+    ...originalModule,
+  };
+});
+
 let token;
 let userId;
 

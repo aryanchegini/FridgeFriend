@@ -1,9 +1,20 @@
 const mongoose = require("mongoose");
 const request = require("supertest");
 const app = require("../../src/app");
-const connectDB = require("../../src/config/mongoose.config");
+const User = require("../../src/models/user.model");
+const UserInventory = require("../../src/models/userInventory.model");
 require("dotenv").config();
 
+// Mock the auth service to ensure consistent behavior
+jest.mock('../../src/services/auth.service', () => {
+  const originalModule = jest.requireActual('../../src/services/auth.service');
+  
+  return {
+    ...originalModule,
+    // These functions will use the actual implementation,
+    // but we can control responses if needed
+  };
+});
 
 beforeAll(async () => {
   await mongoose.connect(process.env.MONGODB_TEST_URI);
@@ -20,7 +31,6 @@ afterAll(async () => {
   await mongoose.connection.close();
 });
 
-
 describe("Auth Controller", () => {
   describe("POST /auth/register", () => {
     // register
@@ -34,11 +44,38 @@ describe("Auth Controller", () => {
 
       expect(response.statusCode).toBe(201);
       expect(response.body).toHaveProperty("token");
+      
+      // Verify that user was actually created in database
+      const user = await User.findOne({ email: "testuserregister@example.com" });
+      expect(user).toBeTruthy();
+      
+      // Verify inventory was created
+      const inventory = await UserInventory.findOne({ userId: user._id });
+      expect(inventory).toBeTruthy();
+    });
+    
+    it("should return 400 if user already exists", async () => {
+      // Create user first
+      await request(app).post("/auth/register").send({
+        name: "existinguser",
+        email: "existinguser@example.com",
+        password: "existinguser123",
+      });
+      
+      // Try to register again with same email
+      const response = await request(app).post("/auth/register").send({
+        name: "existinguser2",
+        email: "existinguser@example.com", 
+        password: "existinguser456",
+      });
+      
+      expect(response.statusCode).toBe(400);
+      expect(response.body.message).toContain("already exists");
     });
   });
 
   describe("POST /auth/login", () => {
-    beforeAll(async () => {
+    beforeEach(async () => {
       await request(app).post("/auth/register").send({
         name: "testuserlogin",
         email: "testuserlogin@example.com",

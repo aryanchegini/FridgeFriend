@@ -4,18 +4,19 @@ const {
   getGroups,
   createGroup,
   joinGroupByCode,
+  createInventory
 } = require("../controllers/group.controller");
 const authenticate = require("../middleware/auth.middleware");
 
-// Protect all routes in this router
 router.use(authenticate);
 
-// Group routes
 router.route("/")
   .get(getGroups)
   .post(createGroup);
 
 // Join group by code
 router.post("/join", joinGroupByCode);
+
+router.post("/create-inventory", createInventory);
 
 module.exports = router;
