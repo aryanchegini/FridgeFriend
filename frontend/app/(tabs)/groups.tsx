@@ -422,15 +422,7 @@ export default function GroupsScreen() {
               maxLength={30}
               placeholderTextColor="#999"
             />
-<<<<<<< HEAD
-            <TouchableOpacity style={styles.modalButton} onPress={handleCreateGroup} testID="create-group">
-=======
-            <TouchableOpacity 
-              style={styles.modalButton} 
-              onPress={handleCreateGroup}
-              activeOpacity={0.8}
-            >
->>>>>>> 1887d3bc6f0b86a9c67ef511d797e97f84ae3b6a
+            <TouchableOpacity style={styles.modalButton} onPress={handleCreateGroup} activeOpacity={0.8} testID="create-group">
               <Text style={styles.modalButtonText}>Create Group</Text>
             </TouchableOpacity>
           </Animated.View>
@@ -464,15 +456,7 @@ export default function GroupsScreen() {
               maxLength={6}
               placeholderTextColor="#999"
             />
-<<<<<<< HEAD
-            <TouchableOpacity style={styles.modalButton} onPress={handleJoinGroup} testID="join-group">
-=======
-            <TouchableOpacity 
-              style={styles.modalButton} 
-              onPress={handleJoinGroup}
-              activeOpacity={0.8}
-            >
->>>>>>> 1887d3bc6f0b86a9c67ef511d797e97f84ae3b6a
+            <TouchableOpacity style={styles.modalButton} onPress={handleJoinGroup} activeOpacity={0.8} testID="join-group">
               <Text style={styles.modalButtonText}>Join Group</Text>
             </TouchableOpacity>
           </Animated.View>
