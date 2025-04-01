@@ -4,15 +4,8 @@ const User = require('../../src/models/user.model');
 const authenticate = require('../../src/middleware/auth.middleware');
 require("dotenv").config();
 
-// MongoDB connection options
-const mongoOptions = {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-};
-
-// Connect to the test database before running tests
 beforeAll(async () => {
-  await mongoose.connect(process.env.MONGODB_TEST_URI, mongoOptions);
+  await mongoose.connect(process.env.MONGODB_TEST_URI);
   console.log('Connected to test database');
 });
 

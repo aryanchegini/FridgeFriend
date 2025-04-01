@@ -2,7 +2,6 @@ const request = require("supertest");
 const mongoose = require("mongoose");
 const Group = require("../../src/models/group.model");
 const GroupMembership = require("../../src/models/groupMembership.model");
-const authenticate = require("../../src/middleware/auth.middleware");
 const UserInventory = require("../../src/models/userInventory.model");
 const User = require("../../src/models/user.model");
 
@@ -11,6 +10,7 @@ require("dotenv").config({ path: ".env.test" });
 const app = require("../../src/app");
 const mockUserId = "65f2a5e9d3b6b6a9f4b2c123"; // use string in mock
 
+// Mock the auth middleware
 jest.mock("../../src/middleware/auth.middleware", () => {
   return (req, res, next) => {
     req.user = {
@@ -22,14 +22,26 @@ jest.mock("../../src/middleware/auth.middleware", () => {
   };
 });
 
+// Mock the group service
+jest.mock("../../src/services/group.service", () => {
+  const originalModule = jest.requireActual('../../src/services/group.service');
+  
+  return {
+    ...originalModule,
+    // We can override functions if needed
+  };
+});
+
 const userId = new mongoose.Types.ObjectId(mockUserId); // use ObjectId where needed
 
 beforeAll(async () => {
   await mongoose.connect(process.env.MONGODB_TEST_URI);
 
-  // Fake auth middleware for testing
+  // Global middleware to set user for tests that don't go through auth middleware
   app.use((req, res, next) => {
-    req.user = { _id: userId };
+    if (!req.user) {
+      req.user = { _id: userId };
+    }
     next();
   });
 });
@@ -48,11 +60,10 @@ afterAll(async () => {
 });
 
 // Testing Creating Groups
-
 describe("POST /groups", () => {
   it("should create a new group and membership", async () => {
     const res = await request(app)
-      .post("/groups") //
+      .post("/groups")
       .send({ group_name: "Test Group" });
 
     expect(res.statusCode).toBe(201);
@@ -64,7 +75,7 @@ describe("POST /groups", () => {
     expect(groupInDb).not.toBeNull();
 
     const membership = await GroupMembership.findOne({
-      userId: "65f2a5e9d3b6b6a9f4b2c123",
+      userId: mockUserId,
       groupId: groupInDb._id,
     });
     expect(membership).not.toBeNull();
@@ -200,5 +211,20 @@ describe("POST /groups/join", () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.body.error).toBe("Group code is required");
+  });
+});
+
+// Test the create-inventory endpoint needed by other tests
+describe("POST /groups/create-inventory", () => {
+  it("should create a user inventory if it doesn't exist", async () => {
+    const res = await request(app)
+      .post("/groups/create-inventory")
+      .set("Authorization", "Bearer fakeToken");
+
+    expect(res.statusCode).toBe(201);
+    expect(res.body).toHaveProperty("inventory");
+    
+    const inventory = await UserInventory.findOne({ userId });
+    expect(inventory).not.toBeNull();
   });
 });

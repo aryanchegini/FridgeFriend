@@ -62,8 +62,25 @@ const joinGroupByCode = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * @desc    Create user inventory if it doesn't exist
+ * @route   POST /api/groups/create-inventory
+ * @access  Private
+ */
+const createInventory = asyncHandler(async (req, res) => {
+  const userID = req.user._id;
+  
+  const inventory = await groupService.createUserInventory(userID);
+  
+  res.status(201).json({
+    message: "Inventory created or already exists",
+    inventory
+  });
+});
+
 module.exports = {
   getGroups,
   createGroup,
-  joinGroupByCode
+  joinGroupByCode,
+  createInventory
 };

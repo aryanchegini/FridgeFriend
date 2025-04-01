@@ -162,8 +162,34 @@ const joinGroupByCode = async (userId, groupCode) => {
   }
 };
 
+/**
+ * Create user inventory if it doesn't exist
+ * @param {String} userId - User ID
+ * @returns {Promise<Object>} - User inventory
+ */
+const createUserInventory = async (userId) => {
+  try {
+    let inventory = await UserInventory.findOne({ userId });
+    
+    if (!inventory) {
+      inventory = await UserInventory.create({
+        userId,
+        products: [],
+        score: 0,
+      });
+      logger.info(`Created inventory for user ${userId}`);
+    }
+    
+    return inventory;
+  } catch (error) {
+    logger.error(`Error creating user inventory: ${error.message}`);
+    throw error;
+  }
+};
+
 module.exports = {
   getGroups,
   createGroup,
   joinGroupByCode,
+  createUserInventory
 };
