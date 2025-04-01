@@ -31,7 +31,7 @@ Before running the frontend, ensure you have the following installed:
 4. Create a `.env` file in the `frontend` directory and your IP address to the file by running the following commands:
     ```sh
     touch .env
-    echo "REACT_NATIVE_API_URL=http://<YOUR_IP_ADDRESS>:3000" > .env
+    echo "EXPO_PUBLIC_API_URL=http://<YOUR_IP_ADDRESS>:3000" > .env
     ```
   
     Replace `<YOUR_IP_ADDRESS>` with your local IP address.
