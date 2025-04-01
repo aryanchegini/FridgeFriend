@@ -1,228 +1,317 @@
-const User = require("../models/user.model");
-const Product = require("../models/product.model");
-const UserInventory = require("../models/userInventory.model");
-const GroupMembership = require("../models/groupMembership.model");
-const Group = require("../models/group.model");
-const logger = require("../utils/logger");
-const cron = require("node-cron");
 const asyncHandler = require("express-async-handler");
 const notificationService = require("../services/notification.service");
+const logger = require("../utils/logger");
 
 /**
- * Send notifications for products expiring soon
- * Checks for products expiring in 1 day or less
+ * @desc    Register or update a user's Expo Push Token
+ * @route   POST /api/notifications/token
+ * @access  Private
  */
-const sendExpiryNotifications = asyncHandler(async () => {
+const registerPushToken = asyncHandler(async (req, res) => {
   try {
-    logger.info("Starting expiry notification checks...");
+    const { pushToken, deviceId } = req.body;
+    const userId = req.user._id;
+
+    await notificationService.registerPushToken(userId, pushToken, deviceId);
     
-    // Find products expiring within the next day
-    const currentDate = new Date();
-    const oneDayLater = new Date(currentDate);
-    oneDayLater.setDate(currentDate.getDate() + 1);
-    
-    // Find products that are not expired or consumed and will expire within the next day
-    const expiringProducts = await Product.find({
-      status: "not_expired",
-      dateOfExpiry: {
-        $gte: currentDate,
-        $lte: oneDayLater
-      }
+    res.status(200).json({
+      success: true,
+      message: "Push token registered successfully"
     });
+  } catch (error) {
+    if (error.message.includes("Invalid") || error.message.includes("required")) {
+      res.status(400).json({ 
+        success: false, 
+        message: error.message 
+      });
+    } else if (error.message.includes("not found")) {
+      res.status(404).json({ 
+        success: false, 
+        message: error.message 
+      });
+    } else {
+      throw error;
+    }
+  }
+});
+
+/**
+ * @desc    Remove a device's push token
+ * @route   DELETE /api/notifications/token
+ * @access  Private
+ */
+const removePushToken = asyncHandler(async (req, res) => {
+  try {
+    const { deviceId } = req.body;
+    const userId = req.user._id;
+
+    await notificationService.removePushToken(userId, deviceId);
     
-    logger.info(`Found ${expiringProducts.length} products expiring soon`);
+    res.status(200).json({
+      success: true,
+      message: "Push token removed successfully"
+    });
+  } catch (error) {
+    if (error.message.includes("required")) {
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    } else if (error.message.includes("not found")) {
+      res.status(404).json({
+        success: false,
+        message: error.message
+      });
+    } else {
+      throw error;
+    }
+  }
+});
+
+/**
+ * @desc    Update notification settings
+ * @route   PUT /api/notifications/settings
+ * @access  Private
+ */
+const updateNotificationSettings = asyncHandler(async (req, res) => {
+  try {
+    const { expiryAlerts, leaderboardAlerts } = req.body;
+    const userId = req.user._id;
+
+    const settings = await notificationService.updateNotificationSettings(
+      userId, 
+      { expiryAlerts, leaderboardAlerts }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Notification settings updated successfully",
+      settings
+    });
+  } catch (error) {
+    if (error.message.includes("not found")) {
+      res.status(404).json({ 
+        success: false, 
+        message: error.message 
+      });
+    } else {
+      throw error;
+    }
+  }
+});
+
+/**
+ * @desc    Get notification settings
+ * @route   GET /api/notifications/settings
+ * @access  Private
+ */
+const getNotificationSettings = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const settings = await notificationService.getNotificationSettings(userId);
+
+    res.status(200).json({
+      success: true,
+      settings
+    });
+  } catch (error) {
+    if (error.message.includes("not found")) {
+      res.status(404).json({ 
+        success: false, 
+        message: error.message 
+      });
+    } else {
+      throw error;
+    }
+  }
+});
+
+/**
+ * @desc    Get user notifications (inbox)
+ * @route   GET /api/notifications/inbox
+ * @access  Private
+ */
+const getNotifications = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const notifications = await notificationService.getUserNotifications(userId);
+    res.status(200).json({ success: true, notifications });
+  } catch (error) {
+    logger.error(`Error fetching inbox: ${error.message}`);
+    res.status(500).json({ success: false, message: "Failed to fetch notifications" });
+  }
+});
+
+/**
+ * @desc    Mark notification as read
+ * @route   PATCH /api/notifications/:id/read
+ * @access  Private
+ */
+const markNotificationAsRead = asyncHandler(async (req, res) => {
+  try {
+    await notificationService.markNotificationAsRead(req.params.id, req.user._id);
+    res.status(200).json({ success: true, message: "Marked as read" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to mark as read" });
+  }
+});
+
+/**
+ * @desc    Delete notification
+ * @route   DELETE /api/notifications/:id
+ * @access  Private
+ */
+const deleteNotification = asyncHandler(async (req, res) => {
+  try {
+    await notificationService.deleteNotification(req.params.id, req.user._id);
+    res.status(200).json({ success: true, message: "Notification deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to delete notification" });
+  }
+});
+
+/**
+ * @desc    Manually trigger expiry notifications (for testing)
+ * @route   POST /api/notifications/test/expiry
+ * @access  Private
+ */
+const testExpiryNotifications = asyncHandler(async (req, res) => {
+  try {
+    const result = await notificationService.sendExpiryNotifications();
+    res.status(200).json(result);
+  } catch (error) {
+    logger.error(`Error sending test expiry notifications: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: "Error sending test notifications",
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @desc    Manually trigger leaderboard notifications (for testing)
+ * @route   POST /api/notifications/test/leaderboard
+ * @access  Private
+ */
+const testLeaderboardNotifications = asyncHandler(async (req, res) => {
+  try {
+    const result = await notificationService.sendLeaderboardNotifications();
+    res.status(200).json(result);
+  } catch (error) {
+    logger.error(`Error sending test leaderboard notifications: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: "Error sending test notifications",
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @desc    Send a direct test notification to the current user
+ * @route   POST /api/notifications/test/direct
+ * @access  Private
+ */
+const testDirectNotification = asyncHandler(async (req, res) => {
+  try {
+    const { title, body, deviceId } = req.body;
+    const userId = req.user._id;
     
-    if (expiringProducts.length === 0) {
-      return { success: true, notificationsSent: 0 };
+    if (!title || !body) {
+      return res.status(400).json({
+        success: false,
+        message: "Title and body are required"
+      });
     }
     
-    // Group products by user
-    const userProductsMap = {};
+    // Get user's push token(s)
+    const user = await User.findById(userId);
     
-    for (const product of expiringProducts) {
-      const userId = product.userId.toString();
-      if (!userProductsMap[userId]) {
-        userProductsMap[userId] = [];
-      }
-      userProductsMap[userId].push(product);
+    if (!user || !user.pushTokens || user.pushTokens.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "User doesn't have any registered push tokens"
+      });
     }
     
-    // Prepare notification messages
+    // Prepare messages
     const messages = [];
     
-    // Process each user's products
-    for (const userId in userProductsMap) {
-      // Fetch the user with their push tokens and settings
-      const user = await User.findById(userId);
+    // If deviceId is provided, send only to that device
+    if (deviceId) {
+      const tokenObj = user.pushTokens.find(t => t.deviceId === deviceId);
       
-      // Skip if user doesn't exist or has disabled expiry alerts
-      // TODO: Add checks:  || !user.pushTokens || user.pushTokens.length === 0
-      if (!user || !user.notificationSettings?.expiryAlerts) {
-        continue;
+      if (!tokenObj) {
+        return res.status(404).json({
+          success: false,
+          message: "Device not found for this user"
+        });
       }
       
-      // Process each product for this user
-      for (const product of userProductsMap[userId]) {
-        // Calculate days remaining until expiry
-        const daysRemaining = Math.ceil(
-          (product.dateOfExpiry - currentDate) / (1000 * 60 * 60 * 24)
-        );
-
-          // Save notification to inbox only (no push)
-          // TODO: Add back push token functionality
-          await notificationService.createExpirationMessage(
-            user._id,
-            null,
-            product.productName,
-            daysRemaining
-          );
-        
+      if (!Expo.isExpoPushToken(tokenObj.token)) {
+        return res.status(400).json({
+          success: false,
+          message: "Push token is not valid"
+        });
+      }
+      
+      messages.push({
+        to: tokenObj.token,
+        sound: 'default',
+        title,
+        body,
+        data: { type: 'TEST_NOTIFICATION' }
+      });
+    } else {
+      // Send to all user's devices
+      for (const tokenObj of user.pushTokens) {
+        if (Expo.isExpoPushToken(tokenObj.token)) {
+          messages.push({
+            to: tokenObj.token,
+            sound: 'default',
+            title,
+            body,
+            data: { type: 'TEST_NOTIFICATION' }
+          });
+        }
       }
     }
     
-    // Send notifications if there are any messages
-    if (messages.length > 0) {
-      const result = await notificationService.sendNotifications(messages);
-      logger.info(`Sent ${result.ticketsCount} expiry notifications`);
-      return { success: true, notificationsSent: result.ticketsCount };
+    if (messages.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid push tokens found"
+      });
     }
     
-    return { success: true, notificationsSent: 0 };
+    // Send test notifications
+    const result = await notificationService.sendNotifications(messages);
+    
+    res.status(200).json({
+      success: true,
+      message: `Test notification sent to ${messages.length} device(s)`,
+      tickets: result.tickets
+    });
   } catch (error) {
-    logger.error(`Error sending expiry notifications: ${error.message}`);
-    return { success: false, error: error.message };
+    logger.error(`Error sending direct test notification: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: "Error sending test notification",
+      error: error.message
+    });
   }
 });
-
-/**
- * Send leaderboard notifications to users close to advancing in rank
- */
-const sendLeaderboardNotifications = asyncHandler(async () => {
-  try {
-    logger.info("Starting leaderboard notification checks...");
-    
-    // Get all groups
-    const groups = await Group.find({});
-    let notificationCount = 0;
-    
-    for (const group of groups) {
-      // Get all members of the group
-      const memberships = await GroupMembership.find({
-        groupId: group._id,
-      });
-      
-      // Get user IDs from memberships
-      const userIds = memberships.map(membership => membership.userId);
-      
-      // Get scores for all users in the group
-      const scores = await UserInventory.find({
-        userId: { $in: userIds },
-      }).select("userId score");
-      
-      // Get user details
-      const users = await User.find({
-        _id: { $in: userIds }
-      }).select("_id name pushTokens notificationSettings");
-      
-      // Create an array with user details and scores
-      const leaderboardData = users
-        .map(user => {
-          // Find the score for this user
-          const userScore = scores.find(
-            s => s.userId.toString() === user._id.toString()
-          );
-          
-          return {
-            userId: user._id,
-            name: user.name,
-            pushTokens: user.pushTokens || [],
-            notificationsEnabled: user.notificationSettings?.leaderboardAlerts,
-            score: userScore ? userScore.score : 0,
-          };
-        })
-        .sort((a, b) => b.score - a.score); // Sort by score (descending)
-      
-      // Create notifications for users
-      const messages = [];
-      
-      leaderboardData.forEach((user, index) => {
-        // Skip if user has disabled leaderboard alerts or has no tokens
-        if (!user.notificationsEnabled || user.pushTokens.length === 0) {
-          return;
-        }
-        
-        const rank = index + 1;
-        
-        // Check if user is not already at the top
-        if (rank > 1) {
-          const userAbove = leaderboardData[index - 1];
-          const pointsToNext = userAbove.score - user.score;
-          
-          // Only notify if they're close (within 5 points) to moving up
-          if (pointsToNext <= 5) {
-            // Send notification to each device
-            for (const tokenObj of user.pushTokens) {
-              const message = notificationService.createLeaderboardMessage(
-                user._id,
-                tokenObj.token,
-                group.groupName,
-                rank,
-                pointsToNext
-              );
-              
-              messages.push(message);
-            }
-          }
-        } else if (rank === 1) {
-          // Notify the top user on each device
-          for (const tokenObj of user.pushTokens) {
-            const message = notificationService.createLeaderboardMessage(
-              user._id,
-              tokenObj.token,
-              group.groupName,
-              rank,
-              0
-            );
-            
-            messages.push(message);
-          }
-        }
-      });
-      
-      // Send notifications if there are any messages
-      if (messages.length > 0) {
-        const result = await notificationService.sendNotifications(messages);
-        notificationCount += result.ticketsCount;
-      }
-    }
-    
-    logger.info(`Sent ${notificationCount} leaderboard notifications`);
-    return { success: true, notificationsSent: notificationCount };
-  } catch (error) {
-    logger.error(`Error sending leaderboard notifications: ${error.message}`);
-    return { success: false, error: error.message };
-  }
-});
-
-/**
- * Set up scheduled notification tasks
- */
-const setupNotificationScheduler = () => {
-  // Run expiry notifications every day at 10:00 AM
-  cron.schedule('0 10 * * *', async () => {
-    await sendExpiryNotifications();
-  });
-  
-  // Run leaderboard notifications once a week on Sunday at 12:00 PM
-  cron.schedule('0 12 * * 0', async () => {
-    await sendLeaderboardNotifications();
-  });
-  
-  logger.info("Notification schedulers initialized");
-};
 
 module.exports = {
-  sendExpiryNotifications,
-  sendLeaderboardNotifications,
-  setupNotificationScheduler
+  registerPushToken,
+  removePushToken,
+  updateNotificationSettings,
+  getNotificationSettings,
+  getNotifications,
+  markNotificationAsRead,
+  deleteNotification,
+  testExpiryNotifications,
+  testLeaderboardNotifications,
+  testDirectNotification
 };
