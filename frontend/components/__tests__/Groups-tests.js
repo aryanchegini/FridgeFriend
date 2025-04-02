@@ -4,14 +4,18 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { Alert } from "react-native";
+import Groups from '../../app/(tabs)/groups';
+import * as api from "../../utils/api";
 const mockAlert = jest.spyOn(Alert, "alert");
 
 // Mock the API
 jest.mock("../../utils/api");
+
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
   SafeAreaProvider: ({ children }) => children,
 }));
+
 jest.mock("@react-navigation/bottom-tabs", () => ({
   useBottomTabBarHeight: () => 50,
   BottomTabBarHeightContext: {
@@ -19,12 +23,7 @@ jest.mock("@react-navigation/bottom-tabs", () => ({
   },
 }));
 
-
-import Groups from '../../app/(tabs)/groups';
-import * as api from "../../utils/api";
-
-
-// mock group data
+// Mock group data
 const mockGroups = [
   {
     groupName: "Test Group",
@@ -49,6 +48,30 @@ const newGroup = {
   ],
 }
 
+// Helper functions
+const createGroup = async (groupName = "Test Group2") => {
+  fireEvent.press(await screen.findByText("Create"));
+  const textInput = await screen.findByPlaceholderText("Enter Group Name")
+  fireEvent.changeText(textInput, groupName);
+  fireEvent.press(await screen.findByTestId("create-group"));
+  
+  api.getGroups.mockResolvedValue({
+    success: true,
+    groups: [...mockGroups, newGroup],
+  })
+
+  await waitFor(() => {
+    expect(api.getGroups).toHaveBeenCalledTimes(2);
+  });
+
+  expect(await screen.findByText(groupName, {}, {timeout: 3000})).toBeTruthy();
+}
+
+const joinGroup = async (groupCode = "DEF123") => {
+  fireEvent.press(await screen.findByText("Join"));
+  fireEvent.changeText(await screen.findByPlaceholderText("Enter Group Code"), groupCode);
+  fireEvent.press(await screen.findByTestId("join-group"));
+}
 
 describe("Groups Screen", () => {
   beforeEach(() => {
@@ -106,7 +129,7 @@ describe("Groups Screen", () => {
   });
 
   test("Can successfully create a group", async () => {
-    api.getGroups.mockResolvedValue({
+    api.getGroups.mockResolvedValueOnce({
       success: true,
       groups: mockGroups,
     });
@@ -130,25 +153,13 @@ describe("Groups Screen", () => {
       expect(api.getGroups).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.press(await screen.findByText("Create"));
-    const textInput = await screen.findByPlaceholderText("Enter Group Name");
-    fireEvent.changeText(textInput, "Test Group2");
-    
-    fireEvent.press(await screen.findByTestId("create-group"));
-    
-    const groupNameElement = await screen.findByText("Test Group2");
-    expect(groupNameElement).toBeTruthy();
+    await createGroup();
   });
 
  test("Can successfully join a group", async () => {
     api.getGroups.mockResolvedValue({
       success: true,
-      groups: mockGroups,
-    });
-
-    api.createGroup.mockResolvedValue({
-      success: true,
-      group: newGroup,
+      groups: [...mockGroups, newGroup],
     });
 
     api.joinGroup.mockResolvedValue({
@@ -169,24 +180,13 @@ describe("Groups Screen", () => {
       expect(api.getGroups).toHaveBeenCalledTimes(1);
     });
 
-    // Create the group
-    fireEvent.press(await screen.findByText("Create"));
-    fireEvent.changeText(await screen.findByPlaceholderText("Enter Group Name"), "Test Group2");
-    fireEvent.press(await screen.findByTestId("create-group"));
-    expect(await screen.findByText("Test Group2")).toBeTruthy();
+    await joinGroup();
 
-    //Join the group
-    fireEvent.press(await screen.findByText("Join"));
-    fireEvent.changeText(await screen.findByPlaceholderText("Enter Group Code"), "DEF123");
-
-    fireEvent.press(await screen.findByTestId("join-group"));
- 
     await waitFor(() => {
       expect(mockAlert).toHaveBeenCalledWith(
       "Success", 
       "Joined the group successfully!"
     )});
-
   });
 
   test("Gracefully handles trying to join invalid groups", async () => {
@@ -214,10 +214,7 @@ describe("Groups Screen", () => {
       expect(api.getGroups).toHaveBeenCalledTimes(1);
     });
 
-    //Join the group
-    fireEvent.press(await screen.findByText("Join"));
-    fireEvent.changeText(await screen.findByPlaceholderText("Enter Group Code"), "DEF123");
-    fireEvent.press(await screen.findByTestId("join-group"));
+    await joinGroup();
  
     await waitFor(() => {
       expect(mockAlert).toHaveBeenCalledWith(

@@ -3,8 +3,16 @@ import { render, waitFor, screen, fireEvent} from "@testing-library/react-native
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { Alert } from "react-native";
+import HomeScreen from "../../app/(tabs)/index";
+import * as api from "../../utils/api";
 
-// Comprehensive mocks
+// Mock the API
+jest.mock("../../utils/api", () => ({
+  getProducts: jest.fn(),
+  deleteProduct: jest.fn(),
+  updateProductStatus: jest.fn(),
+}));
+
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
   SafeAreaProvider: ({ children }) => children,
@@ -14,27 +22,18 @@ jest.mock("@react-navigation/bottom-tabs", () => ({
   useBottomTabBarHeight: () => 50,
 }));
 
-jest.mock("../../utils/api", () => ({
-  getProducts: jest.fn(),
-  deleteProduct: jest.fn(),
-  updateProductStatus: jest.fn(),
-}));
-
-jest.spyOn(Alert, 'alert').mockImplementation((title, message, buttons) => {
-  // Simulate pressing the "Delete" button
+jest.spyOn(Alert, "alert").mockImplementation((title, message, buttons) => {
+  // Simulate pressing the Delete button
   if (buttons && buttons[1]) {
     buttons[1].onPress && buttons[1].onPress();
   }
 });
 
-import HomeScreen from "../../app/(tabs)/index";
-import * as api from "../../utils/api";
-
 const mockItems = [
   {
     _id: "1",
     productName: "Bread",
-    quantity: "1 loaf",
+    quantity: "1",
     dateOfExpiry: "2025-03-28",
     status: "not_expired"
   }
@@ -66,7 +65,7 @@ describe("Home Screen", () => {
     expect(await screen.findByText("Bread")).toBeTruthy();
   });
 
-  test("Marks product as consumed when consumed button is pressed", async () => {
+  test("Marks product as consumed when consumed", async () => {
     api.getProducts.mockResolvedValue({
       success: true,
       product: mockItems,
