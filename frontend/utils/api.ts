@@ -1,4 +1,3 @@
-// utils/api.ts
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Get the base URL from environment variable or use a fallback
