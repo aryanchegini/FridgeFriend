@@ -1,4 +1,3 @@
-// backend/__tests__/controllers/barcode.controller.test.js
 const mongoose = require('mongoose');
 const { getProductByBarcode } = require('../../src/controllers/barcode.controller');
 const barcodeService = require('../../src/services/barcode.service');
