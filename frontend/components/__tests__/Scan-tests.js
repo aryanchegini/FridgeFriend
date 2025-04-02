@@ -2,9 +2,25 @@ import React from "react";
 import { render, waitFor, screen, fireEvent} from "@testing-library/react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
-import Scan from "../../app/(tabs)/Scan"; 
 import { Alert } from "react-native";
+import * as api from "../../utils/api";
+import Scan from "../../app/(tabs)/Scan"; 
 const mockAlert = jest.spyOn(Alert, "alert");
+
+// Mock the API
+jest.mock("../../utils/api", () => ({
+  scanBarcode: jest.fn(),
+  addProduct: jest.fn()
+}));
+
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  SafeAreaProvider: ({ children }) => children
+}));
+
+jest.mock("@react-navigation/bottom-tabs", () => ({
+  useBottomTabBarHeight: () => 50
+}));
 
 // Mock the camera
 jest.mock("expo-camera", () => {
@@ -35,21 +51,25 @@ jest.mock("expo-camera", () => {
   };
 });
 
-jest.mock("@/utils/api", () => ({
-  scanBarcode: jest.fn(),
-  addProduct: jest.fn()
-}));
+// Helper functions
+const simulateBarcodeScan = async (barcode = "12345") => {
+  const mockCamera = screen.getByTestId("mock-camera");
+  fireEvent(mockCamera, "onBarCodeScanned", { 
+    nativeEvent: { 
+      data: barcode, 
+      type: "qr" 
+    } 
+  });
 
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-  SafeAreaProvider: ({ children }) => children
-}));
+  await waitFor(() => {
+    expect(api.scanBarcode).toHaveBeenCalledWith(barcode);
+  });
+};
 
-jest.mock("@react-navigation/bottom-tabs", () => ({
-  useBottomTabBarHeight: () => 50
-}));
-
-import * as api from "../../utils/api";
+const openManualScan = async () => {
+  fireEvent.press(await screen.findByText("Start Scanning",{},{timeout: 3000}));
+  fireEvent.press(await screen.findByText("Manual Entry"));
+};
 
 describe("Scan Screen", () => {
   beforeEach(() => {
@@ -69,16 +89,11 @@ describe("Scan Screen", () => {
       </SafeAreaProvider>
     );
 
-    const startScanningButton = await screen.findByText("Start Scanning",{},{timeout: 3000});
-    // expect(startScanningButton).toBeTruthy();
-    fireEvent.press(startScanningButton);
-
-    const manualEntryButton = await screen.findByText("Manual Entry");
-    fireEvent.press(manualEntryButton);
+    await openManualScan();
 
     const textInput = await screen.findByPlaceholderText("Enter product name");
     fireEvent.changeText(textInput, "Bread");
-    fireEvent.press(await screen.findByText("Save Product"));
+    fireEvent.press(await screen.findByText("Add to Inventory"));
 
     await waitFor(() => {
         expect(mockAlert).toHaveBeenCalledWith(
@@ -107,15 +122,9 @@ describe("Scan Screen", () => {
       </SafeAreaProvider>
     );
     
-    const startScanningButton = await screen.findByText("Start Scanning");;
-    expect(startScanningButton).toBeTruthy();
-    fireEvent.press(startScanningButton);
-
-    const manualEntryButton = await screen.findByText("Manual Entry");
-    fireEvent.press(manualEntryButton);
+    await openManualScan();
 
     fireEvent.press(await screen.findByText("+"));
-
     expect(await screen.findByText("2")).toBeTruthy();
   });
 
@@ -132,15 +141,11 @@ describe("Scan Screen", () => {
       </SafeAreaProvider>
     );
 
-    const startScanningButton = await screen.findByText("Start Scanning");
-    expect(startScanningButton).toBeTruthy();
-    fireEvent.press(startScanningButton);
-
-    const manualEntryButton = await screen.findByText("Manual Entry");
-    fireEvent.press(manualEntryButton);
+    await openManualScan();
+    
     fireEvent.press(await screen.findByText("+")); 
     expect(await screen.findByText("2")).toBeTruthy(); //Quantity should be 2
-    fireEvent.press(await screen.findByText("-")); 
+    fireEvent.press(await screen.findByText("−")); 
     expect(await screen.findByText("1")).toBeTruthy(); //Quantity should be 1
   });
 
@@ -160,23 +165,9 @@ describe("Scan Screen", () => {
       </SafeAreaProvider>
     );
 
-    const startScanningButton = await screen.findByText("Start Scanning");
-    expect(startScanningButton).toBeTruthy();
-    fireEvent.press(startScanningButton);
+    fireEvent.press(await screen.findByText("Start Scanning"));
 
-    const mockCamera = screen.getByTestId("mock-camera");
-
-    // Simulate a barcode scan
-    fireEvent(mockCamera, "onBarCodeScanned", { 
-      nativeEvent: { 
-        data: "12345", 
-        type: "qr" 
-      } 
-    });
-
-    await waitFor(() => {
-      expect(api.scanBarcode).toHaveBeenCalledWith("12345");
-    });
+    await simulateBarcodeScan();
 
     const textInput = await screen.findByPlaceholderText("Enter product name");
     expect(textInput.props.value).toBe("Bread");
@@ -195,23 +186,9 @@ describe("Scan Screen", () => {
       </SafeAreaProvider>
     );
 
-    const startScanningButton = await screen.findByText("Start Scanning");
-    expect(startScanningButton).toBeTruthy();
-    fireEvent.press(startScanningButton);
+    fireEvent.press(await screen.findByText("Start Scanning"));
 
-    const mockCamera = screen.getByTestId("mock-camera");
-
-    // Simulate a barcode scan
-    fireEvent(mockCamera, "onBarCodeScanned", { 
-      nativeEvent: { 
-        data: "12345", 
-        type: "qr" 
-      } 
-    });
-
-    await waitFor(() => {
-      expect(api.scanBarcode).toHaveBeenCalledWith("12345");
-    });
+    await simulateBarcodeScan();
 
     await waitFor(() => {
         expect(mockAlert).toHaveBeenCalledWith(
@@ -242,23 +219,10 @@ describe("Scan Screen", () => {
         </NavigationContainer>
       </SafeAreaProvider>
     );
+
+    fireEvent.press(await screen.findByText("Start Scanning"));
   
-    const startScanningButton = await screen.findByText("Start Scanning");
-    fireEvent.press(startScanningButton);
-  
-    const mockCamera = screen.getByTestId("mock-camera");
-  
-    // Simulate a barcode scan
-    fireEvent(mockCamera, "onBarCodeScanned", { 
-      nativeEvent: { 
-        data: "12345", 
-        type: "qr" 
-      } 
-    });
-  
-    await waitFor(() => {
-      expect(api.scanBarcode).toHaveBeenCalledWith("12345");
-    });
+    await simulateBarcodeScan();
 
     await waitFor(() => {
       expect(mockAlert).toHaveBeenCalledWith(
